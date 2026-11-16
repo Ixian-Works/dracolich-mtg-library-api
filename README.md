@@ -204,6 +204,6 @@ There are none yet — 108 main classes, 0 test classes. Test dependencies are d
 
 ---
 
-Part of the [Dracolich](https://github.com/laasilva?tab=repositories&q=dracolich) platform. For the
+Part of the [Dracolich](https://github.com/orgs/Ixian-Works/repositories?q=dracolich) platform. For the
 cross-repo picture — service topology, release pipeline, shared conventions — see the workspace guide
 at `~/Dev/Dracolich/CLAUDE.md`.
