@@ -70,16 +70,34 @@ All responses are wrapped in the standard `DmdResponse` envelope:
 
 ```json
 {
-  "colors": ["R", "U"],
+  "color_identity": ["W", "U"],
+  "color_identity_match": "AT_MOST",
   "types": ["CREATURE"],
   "keywords": ["flying"],
-  "legalIn": "COMMANDER",
-  "minManaValue": 2.0,
-  "maxManaValue": 5.0
+  "legal_in": "COMMANDER",
+  "min_mana_value": 2.0,
+  "max_mana_value": 5.0
 }
 ```
 
-All fields are optional. Combine with `?name=` query param for name filtering.
+All fields are optional, and the field names are snake_case. Combine with `?name=` query param for
+name filtering.
+
+**Colour filters.** `colors` and `color_identity` each take a match mode, in `colors_match` and
+`color_identity_match`. With white and blue selected:
+
+| Mode | Matches | Use |
+|------|---------|-----|
+| `INCLUDES` (the default) | Cards with white and blue, and any other colour: white-blue, white-blue-black | "Has these colours" |
+| `EXACTLY` | White-blue cards only | "Is these colours" |
+| `AT_MOST` | Cards with no colour outside the two: white, blue, white-blue and colourless | What fits a Commander deck, against the commander's `color_identity` |
+
+- With `EXACTLY` or `AT_MOST`, an empty list means colourless. `C` in a list means the same.
+- A card has one colour identity whatever its number of faces, stored on its default face. Colours
+  belong to a face: `INCLUDES` and `EXACTLY` match a card by either face, and `AT_MOST` needs every
+  face inside the selection.
+- **Two-faced cards imported before this change have no colour identity stored.** `AT_MOST` on
+  `color_identity` leaves them out until the next sync writes it.
 
 ### Sets
 

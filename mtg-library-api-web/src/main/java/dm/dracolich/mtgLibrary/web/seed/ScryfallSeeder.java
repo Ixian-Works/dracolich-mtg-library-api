@@ -262,7 +262,8 @@ public class ScryfallSeeder {
     // Card mapping — split flat Scryfall card into CardEntity + ArtPropertyEntity
     // -----------------------------------------------------------------------
 
-    private CardEntity mapCard(ScryfallCardDto dto) {
+    // Package-private so the mapping can be tested without running a sync.
+    CardEntity mapCard(ScryfallCardDto dto) {
         boolean multiface = dto.cardFaces() != null && !dto.cardFaces().isEmpty();
 
         CardFaceEntity defaultFace;
@@ -270,6 +271,9 @@ public class ScryfallSeeder {
 
         if (multiface) {
             defaultFace = mapCardFace(dto.cardFaces().getFirst(), dto.typeLine());
+            // Scryfall gives one colour identity for the whole card, outside its faces. It is
+            // kept on the default face, where a card with one face has it too.
+            defaultFace.getGameplayProperty().setColorIdentity(parseColors(dto.colorIdentity()));
             if (dto.cardFaces().size() > 1) {
                 flippedFace = mapCardFace(dto.cardFaces().get(1), null);
             }

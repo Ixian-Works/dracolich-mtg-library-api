@@ -1,5 +1,7 @@
 package dm.dracolich.mtgLibrary.web.repository.custom;
 
+import dm.dracolich.mtgLibrary.dto.enums.Color;
+import dm.dracolich.mtgLibrary.dto.enums.ColorMatch;
 import dm.dracolich.mtgLibrary.dto.enums.Legality;
 import dm.dracolich.mtgLibrary.dto.records.CardSearchRecord;
 import dm.dracolich.mtgLibrary.web.entity.CardEntity;
@@ -53,7 +55,8 @@ public class CardCustomRepositoryImpl implements CardCustomRepository {
         return mongoTemplate.aggregate(aggregation, "cards", CardEntity.class).next();
     }
 
-    private Criteria buildCriteria(String name, CardSearchRecord search) {
+    // Package-private and static so the tests can read the query it builds without a database.
+    static Criteria buildCriteria(String name, CardSearchRecord search) {
         List<Criteria> filters = new ArrayList<>();
 
         if (name != null && !name.isBlank())
@@ -63,11 +66,13 @@ public class CardCustomRepositoryImpl implements CardCustomRepository {
             if (search.oracleText() != null && !search.oracleText().isBlank())
                 filters.add(eitherFace("oracle_text").regex(search.oracleText(), "i"));
 
-            if (search.colorIdentity() != null && !search.colorIdentity().isEmpty())
-                filters.add(eitherFaceGameplay("color_identity").all(enumNames(search.colorIdentity())));
+            Criteria colorIdentity = colorIdentityFilter(search.colorIdentity(), search.colorIdentityMatch());
+            if (colorIdentity != null)
+                filters.add(colorIdentity);
 
-            if (search.colors() != null && !search.colors().isEmpty())
-                filters.add(eitherFaceGameplay("colors").all(enumNames(search.colors())));
+            Criteria colors = colorsFilter(search.colors(), search.colorsMatch());
+            if (colors != null)
+                filters.add(colors);
 
             if (search.types() != null && !search.types().isEmpty())
                 filters.add(eitherFace("types").all(enumNames(search.types())));
@@ -105,6 +110,72 @@ public class CardCustomRepositoryImpl implements CardCustomRepository {
         return filters.isEmpty()
                 ? new Criteria()
                 : new Criteria().andOperator(filters.toArray(Criteria[]::new));
+    }
+
+    private static final String DEFAULT_FACE_IDENTITY = "default_face.gameplay_property.color_identity";
+    private static final String DEFAULT_FACE_COLORS = "default_face.gameplay_property.colors";
+    private static final String FLIPPED_FACE_COLORS = "flipped_face.gameplay_property.colors";
+
+    /**
+     * A card has one colour identity, whatever its number of faces, and the seeder keeps it on
+     * the default face. EXACTLY and AT_MOST read it there. INCLUDES is the query it has always
+     * been, on either face; the flipped face never holds an identity, so it reads the same value.
+     *
+     * <p>AT_MOST only matches a card that has an identity stored. Without that condition a card
+     * with none would count as "no colour outside the set" and pass every search.</p>
+     */
+    private static Criteria colorIdentityFilter(Set<Color> selected, ColorMatch match) {
+        if (selected == null) return null;
+        return switch (match != null ? match : ColorMatch.INCLUDES) {
+            case INCLUDES -> selected.isEmpty()
+                    ? null
+                    : eitherFaceGameplay("color_identity").all(enumNames(selected));
+            case EXACTLY -> exactly(DEFAULT_FACE_IDENTITY, coloured(selected));
+            case AT_MOST -> noneOutside(DEFAULT_FACE_IDENTITY, coloured(selected), true);
+        };
+    }
+
+    /**
+     * Colours belong to a face. INCLUDES and EXACTLY match a card when either face matches.
+     * AT_MOST needs every face the card has to stay inside the selection: a card with a white
+     * front and a black back is not "at most white".
+     */
+    private static Criteria colorsFilter(Set<Color> selected, ColorMatch match) {
+        if (selected == null) return null;
+        return switch (match != null ? match : ColorMatch.INCLUDES) {
+            case INCLUDES -> selected.isEmpty()
+                    ? null
+                    : eitherFaceGameplay("colors").all(enumNames(selected));
+            case EXACTLY -> new Criteria().orOperator(
+                    exactly(DEFAULT_FACE_COLORS, coloured(selected)),
+                    exactly(FLIPPED_FACE_COLORS, coloured(selected)));
+            case AT_MOST -> new Criteria().andOperator(
+                    noneOutside(DEFAULT_FACE_COLORS, coloured(selected), true),
+                    // A card with one face has no flipped face, and that must not rule it out.
+                    noneOutside(FLIPPED_FACE_COLORS, coloured(selected), false));
+        };
+    }
+
+    // The colours of a selection as they are stored. C is how a caller says "colourless", and no
+    // card stores it among its colours: a colourless card has an empty list.
+    private static List<String> coloured(Set<Color> selected) {
+        return selected.stream().filter(color -> color != Color.C).map(Enum::name).toList();
+    }
+
+    // The list holds these colours and nothing else. $all with an empty list matches no document,
+    // so "exactly no colour" is the size alone.
+    private static Criteria exactly(String path, List<String> colors) {
+        return colors.isEmpty()
+                ? Criteria.where(path).size(0)
+                : Criteria.where(path).all(colors).size(colors.size());
+    }
+
+    // No element of the list is outside these colours. An empty list passes, which is what makes
+    // a colourless card fit every commander. A missing list passes too unless it has to exist.
+    private static Criteria noneOutside(String path, List<String> colors, boolean mustExist) {
+        Criteria list = Criteria.where(path);
+        if (mustExist) list = list.exists(true);
+        return list.not().elemMatch(new Criteria().nin(colors));
     }
 
     private static EitherFaceBuilder eitherFace(String field) {
