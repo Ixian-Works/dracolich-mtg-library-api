@@ -382,7 +382,22 @@ public class ScryfallSeeder {
     // ArtProperty mapping — printing-level data
     // -----------------------------------------------------------------------
 
-    private ArtPropertyEntity mapArtProperty(ScryfallCardDto dto,
+    /** The card's artist, or the first face's when only the faces name one. */
+    static String artist(ScryfallCardDto dto) {
+        if (dto.artist() != null && !dto.artist().isBlank()) return dto.artist();
+        if (dto.cardFaces() == null) return null;
+        return dto.cardFaces().stream().map(ScryfallCardFaceDto::artist)
+                .filter(a -> a != null && !a.isBlank()).findFirst().orElse(null);
+    }
+
+    /** Each face's artist in face order, for a card with faces; null otherwise. */
+    static List<String> faceArtists(ScryfallCardDto dto) {
+        if (dto.cardFaces() == null || dto.cardFaces().isEmpty()) return null;
+        if (dto.cardFaces().stream().allMatch(face -> face.artist() == null)) return null;
+        return dto.cardFaces().stream().map(ScryfallCardFaceDto::artist).toList();
+    }
+
+    ArtPropertyEntity mapArtProperty(ScryfallCardDto dto,
                                                Map<String, String> oracleIdToCardId,
                                                Map<String, String> scryfallSetIdToSetId) {
         return ArtPropertyEntity.builder()
@@ -390,6 +405,8 @@ public class ScryfallSeeder {
                 .cardId(oracleIdToCardId.get(dto.oracleId()))
                 .setId(scryfallSetIdToSetId.getOrDefault(dto.setId(), dto.setId()))
                 .artistIds(dto.artistIds() != null ? new LinkedHashSet<>(dto.artistIds()) : null)
+                .artist(artist(dto))
+                .faceArtists(faceArtists(dto))
                 .variationOf(dto.variationOf())
                 .releaseDate(parseDate(dto.releasedAt()))
                 .rarity(parseEnum(Rarity.class, dto.rarity()))
