@@ -16,6 +16,8 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+
 import java.util.Comparator;
 import java.util.Map;
 
@@ -30,8 +32,9 @@ public class CardServiceImpl implements CardService {
     private final ArtPropertyMapper artMapper;
 
     @Override
-    public Mono<Page<CardDto>> searchCard(String name, CardSearchRecord cardSearchRecord, int page, int size) {
-        return repo.findByFilters(name, cardSearchRecord, page, size)
+    public Mono<Page<CardDto>> searchCard(String name, CardSearchRecord cardSearchRecord, List<String> sort,
+                                         int page, int size) {
+        return repo.findByFilters(name, cardSearchRecord, sort, page, size)
                 .flatMap(p -> Flux.fromIterable(p.getContent())
                         .flatMap(this::withDefaultArt)
                         .collectList()

@@ -9,6 +9,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.bson.Document;
+import org.springframework.data.mongodb.core.aggregation.AggregationOperation;
+import org.springframework.data.mongodb.core.convert.MongoConverter;
+import org.springframework.data.mongodb.core.convert.QueryMapper;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.aggregation.Aggregation;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -18,6 +22,7 @@ import reactor.core.publisher.Mono;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -26,16 +31,31 @@ public class CardCustomRepositoryImpl implements CardCustomRepository {
     private final ReactiveMongoTemplate mongoTemplate;
 
     @Override
-    public Mono<Page<CardEntity>> findByFilters(String name, CardSearchRecord search, int page, int size) {
+    public Mono<Page<CardEntity>> findByFilters(String name, CardSearchRecord search, List<String> sort,
+                                                int page, int size) {
         Criteria combined = buildCriteria(name, search);
+        // Parsed before any query runs, so an unknown sort is a 400 and costs nothing.
+        CardSearchOrder.sort(sort, name);
 
-        Query query = Query.query(combined);
+        // The $match is mapped the way find() maps a query, so enums and field names are written
+        // exactly as they are stored. The stages after it are plain documents.
+        Document match = mappedMatch(mongoTemplate.getConverter(), combined);
+        List<AggregationOperation> stages = CardSearchOrder.pipeline(match, name, sort, page, size).stream()
+                .<AggregationOperation>map(stage -> context -> stage)
+                .toList();
         PageRequest pageRequest = PageRequest.of(page, size);
 
         return mongoTemplate.count(Query.query(combined), CardEntity.class)
-                .flatMap(total -> mongoTemplate.find(query.with(pageRequest), CardEntity.class)
+                .flatMap(total -> mongoTemplate.aggregate(Aggregation.newAggregation(stages), "cards", CardEntity.class)
                         .collectList()
                         .map(list -> new PageImpl<>(list, pageRequest, total)));
+    }
+
+    // Package-private and static so the tests can check the mapping without a database.
+    static Document mappedMatch(MongoConverter converter, Criteria criteria) {
+        return new QueryMapper(converter).getMappedObject(
+                Query.query(criteria).getQueryObject(),
+                converter.getMappingContext().getPersistentEntity(CardEntity.class));
     }
 
     @Override
@@ -103,8 +123,8 @@ public class CardCustomRepositoryImpl implements CardCustomRepository {
             if (search.rarity() != null)
                 filters.add(Criteria.where("rarity").is(search.rarity()));
 
-            if (search.setCode() != null)
-                filters.add(Criteria.where("set_code").is(search.setCode()));
+            if (search.setCode() != null && !search.setCode().isBlank())
+                filters.add(Criteria.where("set_code").is(search.setCode().toLowerCase(Locale.ROOT)));
         }
 
         return filters.isEmpty()

@@ -5,7 +5,8 @@ import lombok.Getter;
 
 @Getter
 public enum ErrorCodes implements ErrorCode {
-    DMD021("DMD021", "%s: %s not found: %s");
+    DMD021("DMD021", "%s: %s not found: %s"),
+    DMD045("DMD045", "Unknown sort \"%s\". Sort by %s, each optionally followed by \",asc\" or \",desc\"");
 
     private final String code;
     private final String message;

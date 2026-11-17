@@ -5,8 +5,10 @@ import dm.dracolich.mtgLibrary.dto.records.CardSearchRecord;
 import org.springframework.data.domain.Page;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+
 public interface CardService {
-    Mono<Page<CardDto>> searchCard(String name, CardSearchRecord cardSearchRecord, int page, int size);
+    Mono<Page<CardDto>> searchCard(String name, CardSearchRecord cardSearchRecord, List<String> sort, int page, int size);
     Mono<CardDto> fetchRandomCard(CardSearchRecord cardSearchRecord);
     Mono<CardDto> fetchCardById(String id);
     Mono<CardDto> fetchCardByName(String name);

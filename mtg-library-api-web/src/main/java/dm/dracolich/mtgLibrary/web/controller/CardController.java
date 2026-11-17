@@ -4,6 +4,7 @@ import dm.dracolich.mtgLibrary.dto.CardDto;
 import dm.dracolich.mtgLibrary.dto.records.CardSearchRecord;
 import dm.dracolich.mtgLibrary.web.service.CardService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -14,6 +15,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("cards")
@@ -30,9 +33,11 @@ public class CardController {
     @PostMapping(path = {"/search"}, produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<Page<CardDto>> searchCards(@RequestParam(required = false) String name,
                                            @RequestBody CardSearchRecord filters,
+                                           @Parameter(description = "Sort keys, repeatable: name, first_release_date, mana_value or edhrec_rank, each optionally followed by ,asc or ,desc. Without one, a search with a name puts the best name matches first, then the most played.")
+                                           @RequestParam(required = false) List<String> sort,
                                            @RequestParam int page,
                                            @RequestParam int size) {
-        return service.searchCard(name, filters, page, size);
+        return service.searchCard(name, filters, sort, page, size);
     }
 
     @Operation(summary = "Search all cards", description = "Returns cards by name, filters")
