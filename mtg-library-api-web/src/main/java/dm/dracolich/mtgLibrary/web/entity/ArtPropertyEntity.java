@@ -17,6 +17,7 @@ import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.time.LocalDate;
 import java.util.Map;
+import java.util.List;
 import java.util.Set;
 
 @Document(collection = "art_properties")
@@ -37,6 +38,12 @@ public class ArtPropertyEntity {
     private String setId;
     @Field("artist_ids")
     private Set<String> artistIds;
+    // The artist's name as Scryfall credits it: the card's, or its first face's when only the faces
+    // carry one. For a card whose faces have their own art, faceArtists holds each face's artist in
+    // face order. Null on art imported before these existed, until the next sync.
+    private String artist;
+    @Field("face_artists")
+    private List<String> faceArtists;
     @Field("variation_of")
     private String variationOf;
     @Field("back_card_art_id")

@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.util.Map;
+import java.util.List;
 import java.util.Set;
 
 @Data
@@ -27,6 +28,11 @@ public class ArtPropertyDto {
     private String setId;
     @JsonProperty("artist_ids")
     private Set<String> artistIds;
+    /** The artist's name, for crediting the art wherever it is shown. */
+    private String artist;
+    /** Each face's artist, in face order, for a card whose faces have their own art. */
+    @JsonProperty("face_artists")
+    private List<String> faceArtists;
     @JsonProperty("variation_of")
     private String variationOf;
     @JsonProperty("back_card_art_id")

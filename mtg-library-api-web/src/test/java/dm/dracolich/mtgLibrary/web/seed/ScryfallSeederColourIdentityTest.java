@@ -90,4 +90,34 @@ class ScryfallSeederColourIdentityTest {
 
         assertThat(card.getNameKeys()).containsExactly("fire // ice", "fire", "ice");
     }
+
+    @Test
+    void anArtRecordKeepsTheArtistsName() {
+        var dto = json.readValue("""
+                {"id": "s-bolt", "oracle_id": "o-bolt", "name": "Lightning Bolt", "layout": "normal",
+                 "type_line": "Instant", "artist": "Christopher Moeller", "artist_ids": ["a-1"]}
+                """, ScryfallCardDto.class);
+
+        var art = seeder.mapArtProperty(dto, new java.util.HashMap<>(), new java.util.HashMap<>());
+
+        assertThat(art.getArtist()).isEqualTo("Christopher Moeller");
+        assertThat(art.getFaceArtists()).isNull();
+    }
+
+    @Test
+    void aTwoFacedCardKeepsEachFacesArtist() {
+        var dto = json.readValue("""
+                {"id": "s-delver", "oracle_id": "o-delver", "name": "Delver of Secrets // Insectile Aberration",
+                 "layout": "transform", "type_line": "Creature — Human Wizard // Creature — Human Insect",
+                 "card_faces": [
+                   {"name": "Delver of Secrets", "type_line": "Creature — Human Wizard", "artist": "Matt Stewart"},
+                   {"name": "Insectile Aberration", "type_line": "Creature — Human Insect", "artist": "Nils Hamm"}]}
+                """, ScryfallCardDto.class);
+
+        var art = seeder.mapArtProperty(dto, new java.util.HashMap<>(), new java.util.HashMap<>());
+
+        // No top-level artist on this card: the first face's credit stands for the card.
+        assertThat(art.getArtist()).isEqualTo("Matt Stewart");
+        assertThat(art.getFaceArtists()).containsExactly("Matt Stewart", "Nils Hamm");
+    }
 }
