@@ -99,6 +99,17 @@ name filtering.
 - **Two-faced cards imported before this change have no colour identity stored.** `AT_MOST` on
   `color_identity` leaves them out until the next sync writes it.
 
+**Order.** `sort=<key>[,asc|desc]`, repeatable, with the keys `name`, `first_release_date`,
+`mana_value` and `edhrec_rank` (lower is more played; unranked cards come last). Any other value is a
+400, `DMD045`. Without `sort`, a search with a name lists the best name matches first (the whole name,
+then a whole word of it, the start of the name, the start of a word, anywhere), then the most played.
+Without either, cards come in storage order. Every order ends on the card's id, so paging never repeats
+or skips a card.
+
+**Rarity and set** filter the printing the import keeps for each card (Scryfall's `oracle_cards`, one
+printing per card), so a set search finds the cards whose kept printing is in that set. `set_code` is
+case-insensitive. Cards imported before these filters existed need a `POST /sync` to gain the fields.
+
 ### Sets
 
 | Method | Endpoint | Description |
