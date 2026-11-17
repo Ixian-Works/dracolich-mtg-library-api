@@ -5,6 +5,7 @@ import dm.dracolich.mtgLibrary.dto.records.SetSearchRecord;
 import dm.dracolich.mtgLibrary.web.mapper.CollectionSetMapper;
 import dm.dracolich.mtgLibrary.web.repository.CollectionSetRepository;
 import lombok.RequiredArgsConstructor;
+import dm.dracolich.mtgLibrary.web.helpers.PageBounds;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,7 @@ public class CollectionSetServiceImpl implements CollectionSetService {
 
     @Override
     public Mono<Page<CollectionSetDto>> searchSets(String name, SetSearchRecord filters, int page, int size) {
+        PageBounds.check(page, size);
         return repo.findByFilters(name, filters, page, size)
                 .map(entityPage -> new PageImpl<>(
                         entityPage.getContent().stream().map(mapper::entityToDto).toList(),

@@ -109,13 +109,19 @@ public final class CardSearchOrder {
     /** The whole pipeline for one page, from the already mapped {@code $match} document. */
     static List<Document> pipeline(Document match, String name, List<String> sortParams, int page, int size) {
         Document sort = sort(sortParams, name);
+        // Only the helper fields the sort reads are added. A sort on stored fields alone, such as the
+        // newest-first view, then reaches $sort directly and can be served by an index.
+        Document fields = new Document();
+        addFields(name).forEach((field, expression) -> {
+            if (sort.containsKey(field)) fields.append(field, expression);
+        });
         List<Document> stages = new ArrayList<>();
         stages.add(new Document("$match", match));
-        stages.add(new Document("$addFields", addFields(name)));
+        if (!fields.isEmpty()) stages.add(new Document("$addFields", fields));
         stages.add(new Document("$sort", sort));
         stages.add(new Document("$skip", (long) page * size));
         stages.add(new Document("$limit", size));
-        stages.add(new Document("$project", addFields(name).keySet().stream()
+        if (!fields.isEmpty()) stages.add(new Document("$project", fields.keySet().stream()
                 .collect(Collectors.toMap(k -> k, k -> 0, (a, b) -> a, Document::new))));
         return stages;
     }

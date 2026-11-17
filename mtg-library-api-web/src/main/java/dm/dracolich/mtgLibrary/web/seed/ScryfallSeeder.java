@@ -3,6 +3,7 @@ package dm.dracolich.mtgLibrary.web.seed;
 import dm.dracolich.mtgLibrary.dto.enums.*;
 import dm.dracolich.mtgLibrary.integration.client.ScryfallClient;
 import dm.dracolich.mtgLibrary.integration.dto.*;
+import dm.dracolich.mtgLibrary.web.config.MongoIndexes;
 import dm.dracolich.mtgLibrary.web.entity.*;
 import dm.dracolich.mtgLibrary.web.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -38,11 +39,14 @@ public class ScryfallSeeder {
     private final CardLayoutRepository layoutRepository;
     private final FrameEffectRepository frameEffectRepository;
     private final SubtypeRepository subtypeRepository;
+    private final MongoIndexes mongoIndexes;
 
     @EventListener(ApplicationReadyEvent.class)
     public void seed() {
+        // Indexes first: the seed's upserts look up every card and art record by its key.
         // Only seed if the database is empty.
-        cardRepository.count()
+        mongoIndexes.ensureAll()
+                .then(cardRepository.count())
                 .flatMap(count -> {
                     if (count > 0) {
                         log.info("Database already seeded ({} cards). Skipping.", count);
@@ -304,7 +308,18 @@ public class ScryfallSeeder {
                 .defaultFace(defaultFace)
                 .flippedFace(flippedFace)
                 .allParts(allParts)
+                .nameKeys(nameKeys(dto.name(), defaultFace, flippedFace))
                 .build();
+    }
+
+    static Set<String> nameKeys(String name, CardFaceEntity defaultFace, CardFaceEntity flippedFace) {
+        Set<String> keys = new LinkedHashSet<>();
+        for (String key : new String[]{name,
+                defaultFace != null ? defaultFace.getName() : null,
+                flippedFace != null ? flippedFace.getName() : null}) {
+            if (key != null && !key.isBlank()) keys.add(key.trim().toLowerCase(Locale.ROOT));
+        }
+        return keys;
     }
 
     private CardFaceEntity mapCardFaceFromTopLevel(ScryfallCardDto dto) {

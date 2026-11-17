@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import dm.dracolich.mtgLibrary.web.helpers.PageBounds;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
@@ -27,7 +28,7 @@ public class SubtypeController {
                     content = @Content(schema = @Schema(implementation = SubtypeDto.class)))
     })
     @GetMapping(path = {"/search"}, produces = MediaType.APPLICATION_JSON_VALUE)
-    public Mono<Page<SubtypeDto>> fetchAll(@RequestParam int page, @RequestParam int size) {
+    public Mono<Page<SubtypeDto>> fetchAll(@RequestParam(defaultValue = PageBounds.DEFAULT_PAGE) int page, @RequestParam(defaultValue = PageBounds.DEFAULT_SIZE) int size) {
         return service.fetchAll(page, size);
     }
 

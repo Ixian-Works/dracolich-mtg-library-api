@@ -99,6 +99,9 @@ name filtering.
 - **Two-faced cards imported before this change have no colour identity stored.** `AT_MOST` on
   `color_identity` leaves them out until the next sync writes it.
 
+**Paging.** `page` defaults to 0 and `size` to 20, on card, set and subtype searches. `size` runs
+from 1 to 100 and `page` from 0; anything else is a 400, `DMD046`.
+
 **Order.** `sort=<key>[,asc|desc]`, repeatable, with the keys `name`, `first_release_date`,
 `mana_value` and `edhrec_rank` (lower is more played; unranked cards come last). Any other value is a
 400, `DMD045`. Without `sort`, a search with a name lists the best name matches first (the whole name,

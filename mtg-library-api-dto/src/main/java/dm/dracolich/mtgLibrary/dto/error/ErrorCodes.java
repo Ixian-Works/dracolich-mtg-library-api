@@ -6,7 +6,8 @@ import lombok.Getter;
 @Getter
 public enum ErrorCodes implements ErrorCode {
     DMD021("DMD021", "%s: %s not found: %s"),
-    DMD045("DMD045", "Unknown sort \"%s\". Sort by %s, each optionally followed by \",asc\" or \",desc\"");
+    DMD045("DMD045", "Unknown sort \"%s\". Sort by %s, each optionally followed by \",asc\" or \",desc\""),
+    DMD046("DMD046", "Page %s of size %s is out of range: page must be 0 or more, and size from 1 to 100");
 
     private final String code;
     private final String message;
