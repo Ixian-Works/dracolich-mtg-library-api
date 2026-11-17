@@ -16,7 +16,7 @@ class ScryfallSeederColourIdentityTest {
 
     private final JsonMapper json = JsonMapper.builder().build();
     // mapCard touches none of the seeder's collaborators.
-    private final ScryfallSeeder seeder = new ScryfallSeeder(null, null, null, null, null, null, null, null, null, null);
+    private final ScryfallSeeder seeder = new ScryfallSeeder(null, null, null, null, null, null, null, null, null, null, null);
 
     private CardEntity imported(String scryfallCard) {
         return seeder.mapCard(json.readValue(scryfallCard, ScryfallCardDto.class));
@@ -76,5 +76,18 @@ class ScryfallSeederColourIdentityTest {
 
         assertThat(card.getRarity()).isEqualTo(dm.dracolich.mtgLibrary.dto.enums.Rarity.COMMON);
         assertThat(card.getSetCode()).isEqualTo("clb");
+    }
+
+    @Test
+    void aCardsNameKeysAreItsNameAndItsFacesNamesLowerCased() {
+        CardEntity card = imported("""
+                {"oracle_id": "o-fire-ice", "name": "Fire // Ice", "layout": "split",
+                 "type_line": "Instant // Instant", "color_identity": ["R", "U"],
+                 "card_faces": [
+                   {"name": "Fire", "type_line": "Instant", "colors": ["R"]},
+                   {"name": "Ice", "type_line": "Instant", "colors": ["U"]}]}
+                """);
+
+        assertThat(card.getNameKeys()).containsExactly("fire // ice", "fire", "ice");
     }
 }

@@ -23,6 +23,8 @@ import java.util.Set;
 @AllArgsConstructor
 @NoArgsConstructor
 public class CardEntity {
+    public static final String NAME_KEYS = "name_keys";
+
     @Id
     private String id;
     @Indexed(unique = true)
@@ -45,6 +47,10 @@ public class CardEntity {
     private Rarity rarity;
     @Field("set_code")
     private String setCode;
+    // The card's name and each face's name, lower-cased, for an exact-name lookup that an index can
+    // serve. Null on cards imported before it existed, until the next sync.
+    @Field(NAME_KEYS)
+    private Set<String> nameKeys;
     private Boolean multiface;
     @Field("default_face")
     private CardFaceEntity defaultFace;

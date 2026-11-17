@@ -4,6 +4,7 @@ import dm.dracolich.mtgLibrary.dto.SubtypeDto;
 import dm.dracolich.mtgLibrary.web.mapper.SubtypeMapper;
 import dm.dracolich.mtgLibrary.web.repository.SubtypeRepository;
 import lombok.RequiredArgsConstructor;
+import dm.dracolich.mtgLibrary.web.helpers.PageBounds;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -34,6 +35,7 @@ public class SubtypeServiceImpl implements SubtypeService {
 
     @Override
     public Mono<Page<SubtypeDto>> fetchAll(int page, int size) {
+        PageBounds.check(page, size);
         PageRequest pageRequest = PageRequest.of(page, size);
         return repo.findAll(pageRequest.getSort())
                 .collectList()

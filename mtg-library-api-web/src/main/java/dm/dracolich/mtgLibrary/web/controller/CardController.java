@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import dm.dracolich.mtgLibrary.web.helpers.PageBounds;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
@@ -35,8 +36,8 @@ public class CardController {
                                            @RequestBody CardSearchRecord filters,
                                            @Parameter(description = "Sort keys, repeatable: name, first_release_date, mana_value or edhrec_rank, each optionally followed by ,asc or ,desc. Without one, a search with a name puts the best name matches first, then the most played.")
                                            @RequestParam(required = false) List<String> sort,
-                                           @RequestParam int page,
-                                           @RequestParam int size) {
+                                           @RequestParam(defaultValue = PageBounds.DEFAULT_PAGE) int page,
+                                           @RequestParam(defaultValue = PageBounds.DEFAULT_SIZE) int size) {
         return service.searchCard(name, filters, sort, page, size);
     }
 

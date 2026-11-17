@@ -128,9 +128,19 @@ class CardSearchOrderTest {
         }
 
         @Test
-        void withoutANameOnlyTheRankHelperIsAddedAndDropped() {
-            List<Document> stages = CardSearchOrder.pipeline(new Document(), null, List.of("name"), 0, 10);
+        void aSortOnStoredFieldsAddsNothing_soAnIndexCanServeIt() {
+            List<Document> stages = CardSearchOrder.pipeline(new Document(), null, List.of("first_release_date,desc"), 0, 10);
 
+            // The newest-first view: $sort follows $match directly, which idx_first_release_date_id serves.
+            assertThat(stages).extracting(stage -> stage.keySet().iterator().next())
+                    .containsExactly("$match", "$sort", "$skip", "$limit");
+        }
+
+        @Test
+        void anEdhrecSortAddsOnlyItsOwnHelper() {
+            List<Document> stages = CardSearchOrder.pipeline(new Document(), null, List.of("edhrec_rank"), 0, 10);
+
+            assertThat(stages.get(1).get("$addFields", Document.class).keySet()).containsExactly(CardSearchOrder.EDHREC);
             assertThat(stages.get(5).get("$project")).isEqualTo(new Document(CardSearchOrder.EDHREC, 0));
         }
     }
