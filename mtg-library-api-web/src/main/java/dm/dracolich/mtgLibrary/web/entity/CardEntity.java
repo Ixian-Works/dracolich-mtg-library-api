@@ -2,6 +2,7 @@ package dm.dracolich.mtgLibrary.web.entity;
 
 import dm.dracolich.mtgLibrary.dto.enums.Format;
 import dm.dracolich.mtgLibrary.dto.enums.Legality;
+import dm.dracolich.mtgLibrary.dto.enums.Rarity;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -38,6 +39,12 @@ public class CardEntity {
     private Integer edhrecRank;
     @Field("penny_rank")
     private Integer pennyRank;
+    // The imported printing's rarity and set, copied from its art record so that search can filter
+    // on them. The import reads Scryfall's oracle_cards, one printing per card. The set code is
+    // stored lower-cased, as Scryfall writes it.
+    private Rarity rarity;
+    @Field("set_code")
+    private String setCode;
     private Boolean multiface;
     @Field("default_face")
     private CardFaceEntity defaultFace;

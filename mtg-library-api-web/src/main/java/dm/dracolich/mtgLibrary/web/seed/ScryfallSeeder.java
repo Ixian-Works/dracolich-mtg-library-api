@@ -291,6 +291,8 @@ public class ScryfallSeeder {
         return CardEntity.builder()
                 .oracleId(dto.oracleId())
                 .name(dto.name())
+                .rarity(parseEnum(Rarity.class, dto.rarity()))
+                .setCode(dto.setCode() != null ? dto.setCode().toLowerCase(Locale.ROOT) : null)
                 .keywords(dto.keywords() != null ? new LinkedHashSet<>(dto.keywords()) : null)
                 .legalities(parseLegalities(dto.legalities()))
                 .layout(dto.layout())

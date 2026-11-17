@@ -15,4 +15,10 @@ public class ErrorUtil {
         return new ResponseException(ErrorCodes.DMD021.format(context, entity, identifier),
                 List.of(error), HttpStatus.NOT_FOUND);
     }
+
+    public static ResponseException unknownSort(String sort, String allowed) {
+        var error = new ApiError(ErrorCodes.DMD045);
+        return new ResponseException(ErrorCodes.DMD045.format(sort, allowed),
+                List.of(error), HttpStatus.BAD_REQUEST);
+    }
 }

@@ -65,4 +65,16 @@ class ScryfallSeederColourIdentityTest {
         assertThat(card.getDefaultFace().getGameplayProperty().getColorIdentity()).containsExactly(Color.R);
         assertThat(card.getFlippedFace()).isNull();
     }
+
+    @Test
+    void theImportedPrintingsRarityAndSetAreCopiedOntoTheCard() {
+        CardEntity card = imported("""
+                {"oracle_id": "o-bolt", "name": "Lightning Bolt", "layout": "normal",
+                 "type_line": "Instant", "color_identity": ["R"], "colors": ["R"],
+                 "rarity": "common", "set": "CLB"}
+                """);
+
+        assertThat(card.getRarity()).isEqualTo(dm.dracolich.mtgLibrary.dto.enums.Rarity.COMMON);
+        assertThat(card.getSetCode()).isEqualTo("clb");
+    }
 }
