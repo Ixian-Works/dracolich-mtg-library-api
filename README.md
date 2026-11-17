@@ -64,6 +64,7 @@ All responses are wrapped in the standard `DmdResponse` envelope:
 | `GET` | `/cards/{id}` | Fetch card by ID |
 | `GET` | `/cards?name={name}` | Fetch card by exact name |
 | `POST` | `/cards/search?name={name}&page=0&size=10` | Search cards with filters (paginated) |
+| `POST` | `/cards/collection` | Look up to 100 cards at once, by id or exact name (`{"identifiers": [{"id": ...}, {"name": ...}]}`). Returns `cards` in request order and `not_found`; 400 `DMD047` for an empty or oversized list, or an identifier with neither or both |
 | `POST` | `/cards/random` | Fetch a random card matching filters |
 
 **Search request body:**

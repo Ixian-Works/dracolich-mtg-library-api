@@ -1,6 +1,8 @@
 package dm.dracolich.mtgLibrary.web.controller;
 
 import dm.dracolich.mtgLibrary.dto.CardDto;
+import dm.dracolich.mtgLibrary.dto.records.CardCollectionRecord;
+import dm.dracolich.mtgLibrary.dto.records.CardCollectionRequest;
 import dm.dracolich.mtgLibrary.dto.records.CardSearchRecord;
 import dm.dracolich.mtgLibrary.web.service.CardService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -25,6 +27,19 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CardController {
     private final CardService service;
+
+    @Operation(summary = "Look up many cards at once",
+            description = "Up to 100 identifiers, each an id or an exact name (a face's name finds its card). "
+                    + "Returns the cards found in request order, and the identifiers that matched nothing in not_found.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Cards looked up",
+                    content = @Content(schema = @Schema(implementation = CardCollectionRecord.class))),
+            @ApiResponse(responseCode = "400", description = "No identifiers, more than 100, or one with neither or both of id and name")
+    })
+    @PostMapping(path = {"/collection"}, produces = MediaType.APPLICATION_JSON_VALUE)
+    public Mono<CardCollectionRecord> fetchCollection(@RequestBody CardCollectionRequest request) {
+        return service.fetchCollection(request);
+    }
 
     @Operation(summary = "Search all cards", description = "Returns cards by name, filters")
     @ApiResponses(value = {
