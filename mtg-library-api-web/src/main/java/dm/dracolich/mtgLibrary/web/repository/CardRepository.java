@@ -7,10 +7,13 @@ import org.springframework.data.repository.query.ReactiveQueryByExampleExecutor;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.Collection;
+
 public interface CardRepository extends ReactiveMongoRepository<CardEntity, String>,
         ReactiveQueryByExampleExecutor<CardEntity>, CardCustomRepository {
     Mono<CardEntity> findByNameIgnoreCase(String name);
     Flux<CardEntity> findByNameKeys(String nameKey);
+    Flux<CardEntity> findByNameKeysIn(Collection<String> nameKeys);
     Mono<CardEntity> findByOracleId(String oracleId);
     Mono<CardEntity> findByDefaultFaceNameIgnoreCase(String name);
     Mono<CardEntity> findByFlippedFaceNameIgnoreCase(String name);

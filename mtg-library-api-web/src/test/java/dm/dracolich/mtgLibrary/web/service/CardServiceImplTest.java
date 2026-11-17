@@ -2,6 +2,8 @@ package dm.dracolich.mtgLibrary.web.service;
 
 import dm.dracolich.mtgLibrary.dto.ArtPropertyDto;
 import dm.dracolich.mtgLibrary.dto.CardDto;
+import dm.dracolich.mtgLibrary.dto.records.CardCollectionRequest;
+import dm.dracolich.mtgLibrary.dto.records.CardIdentifier;
 import dm.dracolich.mtgLibrary.web.entity.ArtPropertyEntity;
 import dm.dracolich.mtgLibrary.web.entity.CardEntity;
 import dm.dracolich.mtgLibrary.web.mapper.ArtPropertyMapper;
@@ -9,6 +11,7 @@ import dm.dracolich.mtgLibrary.web.mapper.CardMapper;
 import dm.dracolich.mtgLibrary.web.repository.ArtPropertyRepository;
 import dm.dracolich.mtgLibrary.web.repository.CardRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -121,5 +124,107 @@ class CardServiceImplTest {
         StepVerifier.create(service.fetchCardByName("Lightning Bolt"))
                 .assertNext(dto -> assertThat(dto.getId()).isEqualTo("bolt"))
                 .verifyComplete();
+    }
+
+    @Nested
+    class CollectionLookup {
+
+        private CardEntity keyed(String id, String name, String... keys) {
+            CardEntity card = card(id, name);
+            card.setNameKeys(new java.util.LinkedHashSet<>(List.of(keys)));
+            return card;
+        }
+
+        @BeforeEach
+        void noArt() {
+            when(art.findByCardIdIn(anyCollection())).thenReturn(Flux.empty());
+        }
+
+        @Test
+        void ahundredNamesAreTwoQueriesForCardsAndOneForArt() {
+            List<CardIdentifier> identifiers = new java.util.ArrayList<>();
+            List<CardEntity> library = new java.util.ArrayList<>();
+            for (int i = 0; i < 100; i++) {
+                identifiers.add(CardIdentifier.byName("Card " + i));
+                library.add(keyed("c" + i, "Card " + i, "card " + i));
+            }
+            when(cards.findByNameKeysIn(anyCollection())).thenReturn(Flux.fromIterable(library));
+
+            StepVerifier.create(service.fetchCollection(new CardCollectionRequest(identifiers)))
+                    .assertNext(result -> {
+                        assertThat(result.cards()).hasSize(100);
+                        assertThat(result.cards().getFirst().getId()).isEqualTo("c0");
+                        assertThat(result.notFound()).isEmpty();
+                    })
+                    .verifyComplete();
+
+            verify(cards, times(1)).findByNameKeysIn(anyCollection());
+            verify(cards, never()).findAllById(any(Iterable.class));
+            verify(cards, never()).findByNameKeys(anyString());
+            verify(art, times(1)).findByCardIdIn(anyCollection());
+        }
+
+        @Test
+        void unknownNamesComeBackInNotFound_inRequestOrder_andTheRestPairUp() {
+            when(cards.findAllById(any(Iterable.class))).thenReturn(Flux.just(card("bolt", "Lightning Bolt")));
+            when(cards.findByNameKeysIn(anyCollection())).thenReturn(Flux.just(keyed("ice", "Fire // Ice", "fire // ice", "fire", "ice")));
+            when(cards.findByNameIgnoreCase(anyString())).thenReturn(Mono.empty());
+            when(cards.findByDefaultFaceNameIgnoreCase(anyString())).thenReturn(Mono.empty());
+            when(cards.findByFlippedFaceNameIgnoreCase(anyString())).thenReturn(Mono.empty());
+
+            List<CardIdentifier> identifiers = List.of(
+                    CardIdentifier.byName("Nope One"), CardIdentifier.byId("bolt"), CardIdentifier.byName("ICE"),
+                    CardIdentifier.byName("Nope Two"), CardIdentifier.byId("missing"), CardIdentifier.byName("Nope Three"));
+
+            StepVerifier.create(service.fetchCollection(new CardCollectionRequest(identifiers)))
+                    .assertNext(result -> {
+                        assertThat(result.cards()).extracting(CardDto::getId).containsExactly("bolt", "ice");
+                        assertThat(result.notFound()).containsExactly(
+                                CardIdentifier.byName("Nope One"), CardIdentifier.byName("Nope Two"),
+                                CardIdentifier.byId("missing"), CardIdentifier.byName("Nope Three"));
+                    })
+                    .verifyComplete();
+        }
+
+        @Test
+        void aCardImportedBeforeNameKeysIsFoundByTheFallback() {
+            when(cards.findByNameKeysIn(anyCollection())).thenReturn(Flux.empty());
+            when(cards.findByNameIgnoreCase("Old Card")).thenReturn(Mono.just(card("old", "Old Card")));
+
+            StepVerifier.create(service.fetchCollection(new CardCollectionRequest(List.of(CardIdentifier.byName("Old Card")))))
+                    .assertNext(result -> assertThat(result.cards()).extracting(CardDto::getId).containsExactly("old"))
+                    .verifyComplete();
+        }
+
+        @Test
+        void aRepeatedIdentifierRepeatsItsCard() {
+            when(cards.findAllById(any(Iterable.class))).thenReturn(Flux.just(card("bolt", "Lightning Bolt")));
+
+            StepVerifier.create(service.fetchCollection(new CardCollectionRequest(List.of(
+                            CardIdentifier.byId("bolt"), CardIdentifier.byId("bolt")))))
+                    .assertNext(result -> assertThat(result.cards()).extracting(CardDto::getId).containsExactly("bolt", "bolt"))
+                    .verifyComplete();
+        }
+
+        @Test
+        void aBadRequestIs400WithNoQuery() {
+            List<CardIdentifier> tooMany = java.util.Collections.nCopies(101, CardIdentifier.byId("x"));
+            for (CardCollectionRequest bad : List.of(
+                    new CardCollectionRequest(List.of()),
+                    new CardCollectionRequest(tooMany),
+                    new CardCollectionRequest(List.of(new CardIdentifier("a", "b"))),
+                    new CardCollectionRequest(List.of(new CardIdentifier(" ", null))))) {
+                StepVerifier.create(service.fetchCollection(bad))
+                        .expectErrorSatisfies(e -> {
+                            assertThat(e).isInstanceOf(dm.dracolich.forge.exception.ResponseException.class);
+                            var response = (dm.dracolich.forge.exception.ResponseException) e;
+                            assertThat(response.getHttpStatus()).isEqualTo(org.springframework.http.HttpStatus.BAD_REQUEST);
+                            assertThat(response.getErrors()).extracting("error").containsExactly("DMD047");
+                        })
+                        .verify();
+            }
+            verify(cards, never()).findAllById(any(Iterable.class));
+            verify(cards, never()).findByNameKeysIn(anyCollection());
+        }
     }
 }

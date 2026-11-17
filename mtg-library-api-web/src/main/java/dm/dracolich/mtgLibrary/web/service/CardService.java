@@ -1,6 +1,8 @@
 package dm.dracolich.mtgLibrary.web.service;
 
 import dm.dracolich.mtgLibrary.dto.CardDto;
+import dm.dracolich.mtgLibrary.dto.records.CardCollectionRecord;
+import dm.dracolich.mtgLibrary.dto.records.CardCollectionRequest;
 import dm.dracolich.mtgLibrary.dto.records.CardSearchRecord;
 import org.springframework.data.domain.Page;
 import reactor.core.publisher.Mono;
@@ -12,4 +14,5 @@ public interface CardService {
     Mono<CardDto> fetchRandomCard(CardSearchRecord cardSearchRecord);
     Mono<CardDto> fetchCardById(String id);
     Mono<CardDto> fetchCardByName(String name);
+    Mono<CardCollectionRecord> fetchCollection(CardCollectionRequest request);
 }
