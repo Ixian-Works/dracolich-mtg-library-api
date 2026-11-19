@@ -160,7 +160,24 @@ case-insensitive. Cards imported before these filters existed need a `POST /sync
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/sync` | Trigger Scryfall bulk data sync |
+| `POST` | `/sync` | Run a Scryfall sync now, whether or not Scryfall's files changed. 409 while one is running here or in another replica. |
+
+**When the library syncs.** At startup when there are no cards; every day at 04:30 UTC
+(`dracolich.sync.cron`, a Spring cron expression; `"-"` turns the schedule off); and on `POST /sync`.
+A scheduled run does nothing, and logs "Scryfall's files haven't changed since the last sync", when
+Scryfall's `oracle_cards` and `rulings` files have the same `updated_at` as at the last successful run.
+
+**One at a time.** Every run takes a lease in MongoDB (`sync_lock`, two hours), so with several
+replicas only one syncs; a replica that dies mid-sync lets the lease run out. Within one process a
+second sync is refused at once.
+
+**Records.** Each run, and each skip, is a document in `sync_runs`: why it ran, when it started and
+ended, Scryfall's `updated_at` for both files, how many sets, symbols, cards and rulings it wrote, how
+many stored cards Scryfall no longer has (kept, never deleted, and logged), and the error if it
+failed. The last successful run is under `scryfallSync` in the `info` actuator endpoint.
+
+**Rulings during a sync.** They are written to `rulings_next` and swapped in with one rename, so
+`rulings` is never empty while a sync runs, and a sync that fails part way leaves the old ones.
 
 ## Data Source
 

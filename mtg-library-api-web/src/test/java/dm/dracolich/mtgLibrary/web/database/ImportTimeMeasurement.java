@@ -74,7 +74,7 @@ class ImportTimeMeasurement {
                     context.getBean(CollectionSetRepository.class), context.getBean(SymbolRepository.class),
                     context.getBean(CardRepository.class), context.getBean(ArtPropertyRepository.class),
                     context.getBean(RulingRepository.class), context.getBean(CardLayoutRepository.class),
-                    context.getBean(FrameEffectRepository.class), context.getBean(SubtypeRepository.class), indexes);
+                    context.getBean(FrameEffectRepository.class), context.getBean(SubtypeRepository.class));
 
             if (withIndexes) indexes.ensureAll().block(Duration.ofMinutes(1));
             long start = System.nanoTime();

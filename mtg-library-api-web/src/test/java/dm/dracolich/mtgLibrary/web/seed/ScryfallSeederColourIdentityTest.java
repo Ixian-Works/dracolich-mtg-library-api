@@ -16,7 +16,7 @@ class ScryfallSeederColourIdentityTest {
 
     private final JsonMapper json = JsonMapper.builder().build();
     // mapCard touches none of the seeder's collaborators.
-    private final ScryfallSeeder seeder = new ScryfallSeeder(null, null, null, null, null, null, null, null, null, null, null);
+    private final ScryfallSeeder seeder = new ScryfallSeeder(null, null, null, null, null, null, null, null, null, null);
 
     private CardEntity imported(String scryfallCard) {
         return seeder.mapCard(json.readValue(scryfallCard, ScryfallCardDto.class));

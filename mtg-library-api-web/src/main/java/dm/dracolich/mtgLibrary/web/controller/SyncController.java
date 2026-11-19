@@ -1,6 +1,7 @@
 package dm.dracolich.mtgLibrary.web.controller;
 
-import dm.dracolich.mtgLibrary.web.seed.ScryfallSeeder;
+import dm.dracolich.mtgLibrary.web.entity.SyncRunEntity;
+import dm.dracolich.mtgLibrary.web.seed.SyncService;
 import dm.dracolich.forge.response.DmdResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -14,13 +15,16 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class SyncController {
 
-    private final ScryfallSeeder seeder;
+    private final SyncService syncService;
 
+    /** Runs a sync now, whether or not Scryfall's files changed. 409 while another is running. */
     @PostMapping
     public Mono<DmdResponse<String>> sync() {
-        return seeder.sync()
-                .thenReturn(DmdResponse.of("Scryfall sync complete.", HttpStatus.OK, "Scryfall sync complete."))
-                .onErrorResume(IllegalStateException.class, e ->
+        return syncService.run(SyncRunEntity.Trigger.MANUAL, true)
+                .map(run -> run.getOutcome() == SyncRunEntity.Outcome.SKIPPED_LOCKED
+                        ? DmdResponse.of((String) null, HttpStatus.CONFLICT, "Sync already in progress.")
+                        : DmdResponse.of("Scryfall sync complete.", HttpStatus.OK, "Scryfall sync complete."))
+                .onErrorResume(SyncService.SyncInProgressException.class, e ->
                         Mono.just(DmdResponse.of((String) null, HttpStatus.CONFLICT, e.getMessage())));
     }
 }
