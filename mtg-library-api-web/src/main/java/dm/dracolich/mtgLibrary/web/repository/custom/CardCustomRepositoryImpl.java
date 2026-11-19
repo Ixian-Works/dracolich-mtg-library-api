@@ -1,5 +1,6 @@
 package dm.dracolich.mtgLibrary.web.repository.custom;
 
+import static dm.dracolich.mtgLibrary.web.helpers.ErrorUtil.notFound;
 import dm.dracolich.mtgLibrary.dto.enums.Color;
 import dm.dracolich.mtgLibrary.dto.enums.ColorMatch;
 import dm.dracolich.mtgLibrary.dto.enums.Legality;
@@ -33,7 +34,21 @@ public class CardCustomRepositoryImpl implements CardCustomRepository {
     @Override
     public Mono<Page<CardEntity>> findByFilters(String name, CardSearchRecord search, List<String> sort,
                                                 int page, int size) {
-        Criteria combined = buildCriteria(name, search);
+        String beside = search != null ? search.besideCommander() : null;
+        if (beside == null || beside.isBlank()) {
+            return findByCriteria(buildCriteria(name, search), name, sort, page, size);
+        }
+        // The cards allowed beside a commander depend on that commander, so it is read first.
+        CardSearchOrder.sort(sort, name);
+        return mongoTemplate.findById(beside, CardEntity.class)
+                .switchIfEmpty(Mono.error(() -> notFound("card", "id", beside)))
+                .flatMap(first -> findByCriteria(
+                        new Criteria().andOperator(buildCriteria(name, search), CommanderCriteria.beside(first)),
+                        name, sort, page, size));
+    }
+
+    private Mono<Page<CardEntity>> findByCriteria(Criteria combined, String name, List<String> sort,
+                                                  int page, int size) {
         // Parsed before any query runs, so an unknown sort is a 400 and costs nothing.
         CardSearchOrder.sort(sort, name);
 
@@ -122,6 +137,11 @@ public class CardCustomRepositoryImpl implements CardCustomRepository {
 
             if (search.rarity() != null)
                 filters.add(Criteria.where("rarity").is(search.rarity()));
+
+            if (Boolean.TRUE.equals(search.canBeCommander()))
+                filters.add(Criteria.where("can_be_commander").is(true));
+            else if (Boolean.FALSE.equals(search.canBeCommander()))
+                filters.add(Criteria.where("can_be_commander").ne(true));
 
             if (search.setCode() != null && !search.setCode().isBlank())
                 filters.add(Criteria.where("set_code").is(search.setCode().toLowerCase(Locale.ROOT)));

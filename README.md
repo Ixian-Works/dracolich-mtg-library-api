@@ -110,6 +110,36 @@ then a whole word of it, the start of the name, the start of a word, anywhere), 
 Without either, cards come in storage order. Every order ends on the card's id, so paging never repeats
 or skips a card.
 
+**Commanders.** `can_be_commander: true` in the search body keeps only the cards that can be a
+Commander deck's commander. `beside_commander: "<card id>"` keeps only the cards that may be chosen
+beside that commander as the deck's second one (404 when the id is no card). Each card answers with
+`can_be_commander` and `pairings`. Both are worked out at import, so cards imported before them need
+a `POST /sync`.
+
+A card **can be a commander**, by Comprehensive Rules 903.3 and 903.3a (rules effective
+2026-06-19), when its front face is legendary and is a creature, a Vehicle, or a Spacecraft with a
+power and toughness; or its rules text says it "can be your commander" (such as Grist, the Hunger
+Tide). A card banned or not legal in Commander can't be. **Not covered:** the Brawl variant, where a
+planeswalker can be a commander too (903.12c), and Oathbreaker.
+
+**What may go beside a commander**, by its `pairings`:
+
+| The commander has | Beside it |
+|---|---|
+| `partner` (plain Partner) | any other plain Partner commander |
+| `partner_with:<name>` ("Partner with Toothy, Imaginary Friend") | only that card |
+| `partner_group:<name>` ("Partner—Survivors") | any other commander with the same named Partner |
+| `friends_forever` | any other Friends forever commander |
+| `choose_a_background` | any Background (`background`: a legendary Background enchantment, never a commander itself) |
+| `background` (asked from a Background) | any commander that says "Choose a Background" |
+| `doctors_companion` | any Time Lord Doctor commander (`doctor`) |
+| `doctor` | any Doctor's companion commander |
+| none | nothing |
+
+The kinds are read from the card's keywords, from "Partner with" and "Partner—" lines in the front
+face's text, and from its type line. Not covered yet: rules that limit a pairing by colour, and cards
+that grant a pairing to others.
+
 **Rarity and set** filter the printing the import keeps for each card (Scryfall's `oracle_cards`, one
 printing per card), so a set search finds the cards whose kept printing is in that set. `set_code` is
 case-insensitive. Cards imported before these filters existed need a `POST /sync` to gain the fields.

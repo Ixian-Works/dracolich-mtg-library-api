@@ -51,7 +51,10 @@ public class MongoIndexes {
                 new Index().on(CardEntity.NAME_KEYS, Sort.Direction.ASC).named("idx_name_keys"),
                 // The cards screen's newest-first view, with the _id tiebreak every search sort ends on.
                 new Index().on("first_release_date", Sort.Direction.DESC).on("_id", Sort.Direction.ASC)
-                        .named("idx_first_release_date_id")));
+                        .named("idx_first_release_date_id"),
+                // The commander picker: cards that can be a commander, and what they pair with.
+                new Index().on("can_be_commander", Sort.Direction.ASC).on("pairings", Sort.Direction.ASC)
+                        .named("idx_commander_pairings")));
     }
 
     /** Every index to create, by entity: the annotated ones, then the extra ones. */
