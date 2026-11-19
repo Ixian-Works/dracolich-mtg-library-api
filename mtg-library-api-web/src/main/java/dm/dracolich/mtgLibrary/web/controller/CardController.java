@@ -49,7 +49,7 @@ public class CardController {
     @PostMapping(path = {"/search"}, produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<Page<CardDto>> searchCards(@RequestParam(required = false) String name,
                                            @RequestBody CardSearchRecord filters,
-                                           @Parameter(description = "Sort keys, repeatable: name, first_release_date, mana_value or edhrec_rank, each optionally followed by ,asc or ,desc. Without one, a search with a name puts the best name matches first, then the most played.")
+                                           @Parameter(description = "Sort keys, repeatable: name, first_release_date, mana_value, edhrec_rank or collector_number (by the number inside, then the text, so 12 before 12a before 13; only with a set_code filter), each optionally followed by ,asc or ,desc. Without one, a search with a name puts the best name matches first, then the most played.")
                                            @RequestParam(required = false) List<String> sort,
                                            @RequestParam(defaultValue = PageBounds.DEFAULT_PAGE) int page,
                                            @RequestParam(defaultValue = PageBounds.DEFAULT_SIZE) int size) {

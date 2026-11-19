@@ -178,4 +178,22 @@ class CardSearchOrderTest {
             assertThat(match).isEqualTo(Document.parse("{\"$and\": [{\"set_code\": \"mh3\"}]}"));
         }
     }
+
+    @Test
+    void collectorNumberSortsByTheNumberInsideThenTheText() {
+        assertThat(CardSearchOrder.sort(List.of("collector_number"), null))
+                .isEqualTo(new Document("collector_order", 1).append("collector_number", 1).append("_id", 1));
+        assertThat(CardSearchOrder.sort(List.of("collector_number,desc"), null))
+                .isEqualTo(new Document("collector_order", -1).append("collector_number", -1).append("_id", 1));
+    }
+
+    @Test
+    void aLoneDirectionIsTheDirectionOfTheKeyBeforeIt() {
+        assertThat(SortParameters.joined(List.of("mana_value", "desc"))).containsExactly("mana_value,desc");
+        assertThat(SortParameters.joined(List.of("mana_value", "DESC", "name", "asc"))).containsExactly("mana_value,DESC", "name,asc");
+        assertThat(SortParameters.joined(List.of("mana_value,desc", "name"))).containsExactly("mana_value,desc", "name");
+        // A direction with nothing before it, or after a key that has one, is left alone and refused.
+        assertThat(SortParameters.joined(List.of("asc"))).containsExactly("asc");
+        assertThat(SortParameters.joined(List.of("name,asc", "desc"))).containsExactly("name,asc", "desc");
+    }
 }

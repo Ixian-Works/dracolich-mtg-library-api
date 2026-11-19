@@ -51,7 +51,17 @@ public class MongoIndexes {
                 new Index().on(CardEntity.NAME_KEYS, Sort.Direction.ASC).named("idx_name_keys"),
                 // The cards screen's newest-first view, with the _id tiebreak every search sort ends on.
                 new Index().on("first_release_date", Sort.Direction.DESC).on("_id", Sort.Direction.ASC)
-                        .named("idx_first_release_date_id")));
+                        .named("idx_first_release_date_id"),
+                // A set's cards in collector-number order.
+                new Index().on("set_code", Sort.Direction.ASC).on("collector_order", Sort.Direction.ASC)
+                        .on("collector_number", Sort.Direction.ASC).on("_id", Sort.Direction.ASC)
+                        .named("idx_set_collector_number")),
+                CollectionSetEntity.class, List.of(
+                // Set search newest first, the default, and by name.
+                new Index().on("release_date", Sort.Direction.DESC).on("_id", Sort.Direction.ASC)
+                        .named("idx_release_date_id"),
+                new Index().on("name", Sort.Direction.ASC).on("_id", Sort.Direction.ASC)
+                        .named("idx_set_name_id")));
     }
 
     /** Every index to create, by entity: the annotated ones, then the extra ones. */

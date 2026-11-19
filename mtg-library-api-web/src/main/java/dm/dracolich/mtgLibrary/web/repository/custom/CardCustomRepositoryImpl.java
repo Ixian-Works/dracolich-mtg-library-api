@@ -36,6 +36,7 @@ public class CardCustomRepositoryImpl implements CardCustomRepository {
         Criteria combined = buildCriteria(name, search);
         // Parsed before any query runs, so an unknown sort is a 400 and costs nothing.
         CardSearchOrder.sort(sort, name);
+        CardSearchOrder.requireSetForCollectorNumber(sort, search != null ? search.setCode() : null);
 
         // The $match is mapped the way find() maps a query, so enums and field names are written
         // exactly as they are stored. The stages after it are plain documents.

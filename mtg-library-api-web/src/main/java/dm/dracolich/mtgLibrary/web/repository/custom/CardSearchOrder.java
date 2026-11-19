@@ -27,13 +27,17 @@ public final class CardSearchOrder {
     static final String RELEVANCE = "_relevance";
     static final String EDHREC = "_edhrec";
 
-    private static final Map<String, String> KEYS = new LinkedHashMap<>();
+    /** Each key's stored fields, in the order they sort. */
+    private static final Map<String, List<String>> KEYS = new LinkedHashMap<>();
 
     static {
-        KEYS.put("name", "name");
-        KEYS.put("first_release_date", "first_release_date");
-        KEYS.put("mana_value", "default_face.gameplay_property.mana_value");
-        KEYS.put("edhrec_rank", EDHREC);
+        KEYS.put("name", List.of("name"));
+        KEYS.put("first_release_date", List.of("first_release_date"));
+        KEYS.put("mana_value", List.of("default_face.gameplay_property.mana_value"));
+        KEYS.put("edhrec_rank", List.of(EDHREC));
+        // A set's cards as players know them: by the number inside the collector number, then the
+        // number as text, so 12 < 12a < 13 (see CollectorNumbers).
+        KEYS.put("collector_number", List.of("collector_order", "collector_number"));
     }
 
     private CardSearchOrder() {
@@ -44,8 +48,26 @@ public final class CardSearchOrder {
         return String.join(", ", KEYS.keySet());
     }
 
+    /**
+     * Refuses {@code collector_number} without a {@code set_code} filter (400, DMD045): collector
+     * numbers mean nothing across sets, and only within a set does an index serve that order.
+     */
+    static void requireSetForCollectorNumber(List<String> sortParams, String setCode) {
+        if (setCode != null && !setCode.isBlank()) return;
+        List<String> joined = SortParameters.joined(sortParams);
+        if (joined == null) return;
+        for (String param : joined) {
+            String key = param == null ? "" : param.trim().split("\\s*,\\s*")[0].toLowerCase(Locale.ROOT);
+            if (key.equals("collector_number")) {
+                throw unknownSort(param, "name, first_release_date, mana_value or edhrec_rank;"
+                        + " collector_number only with a set_code filter");
+            }
+        }
+    }
+
     /** Turns the request's sort parameters into a {@code $sort} document. */
     static Document sort(List<String> sortParams, String name) {
+        sortParams = SortParameters.joined(sortParams);
         Document sort = new Document();
         if (sortParams != null && !sortParams.isEmpty()) {
             for (String param : sortParams) {
@@ -71,7 +93,9 @@ public final class CardSearchOrder {
                 default -> throw unknownSort(param, allowedKeys());
             };
         }
-        sort.append(KEYS.get(parts[0].toLowerCase(Locale.ROOT)), direction);
+        for (String field : KEYS.get(parts[0].toLowerCase(Locale.ROOT))) {
+            sort.append(field, direction);
+        }
     }
 
     /**

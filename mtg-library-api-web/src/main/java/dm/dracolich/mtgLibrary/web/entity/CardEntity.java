@@ -47,6 +47,12 @@ public class CardEntity {
     private Rarity rarity;
     @Field("set_code")
     private String setCode;
+    // The imported printing's collector number, and the number inside it for ordering a set's cards
+    // (see CollectorNumbers). Null on cards imported before they existed, until the next sync.
+    @Field("collector_number")
+    private String collectorNumber;
+    @Field("collector_order")
+    private Integer collectorOrder;
     // The card's name and each face's name, lower-cased, for an exact-name lookup that an index can
     // serve. Null on cards imported before it existed, until the next sync.
     @Field(NAME_KEYS)
