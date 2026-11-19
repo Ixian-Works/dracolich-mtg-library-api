@@ -114,6 +114,21 @@ class SetAndCardOrderTest {
     }
 
     @Test
+    void collectorNumberWithoutASetIsA400() {
+        card("mh3", "1");
+        CardSearchRecord noSet = new CardSearchRecord(null, null, null, null, null, null, null, null, null, null, null);
+
+        for (List<String> sort : List.of(List.of("collector_number"), List.of("collector_number", "desc"), List.of("name", "collector_number,asc"))) {
+            Throwable error = catchThrowable(() -> cards.findByFilters(null, noSet, sort, 0, 20).block(WAIT));
+            assertThat(error).isInstanceOf(ResponseException.class);
+            assertThat(((ResponseException) error).getHttpStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(((ResponseException) error).getErrors()).extracting("error").containsExactly("DMD045");
+        }
+        Throwable nullRecord = catchThrowable(() -> cards.findByFilters(null, null, List.of("collector_number"), 0, 20).block(WAIT));
+        assertThat(nullRecord).isInstanceOf(ResponseException.class);
+    }
+
+    @Test
     void theDefaultSetOrderUsesItsIndex() {
         for (int i = 0; i < 50; i++) set("s" + i, "Set " + i, LocalDate.of(2000, 1, 1).plusDays(i));
 

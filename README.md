@@ -103,7 +103,7 @@ name filtering.
 **Paging.** `page` defaults to 0 and `size` to 20, on card, set and subtype searches. `size` runs
 from 1 to 100 and `page` from 0; anything else is a 400, `DMD046`. A page loads its cards' art in one query.
 
-**Order.** `sort=<key>[,asc|desc]`, repeatable, with the keys `name`, `first_release_date`,
+**Order.** `sort=<key>[,asc|desc]`, repeatable (a single `sort=name,desc` and `sort=name&sort=desc` read the same), with the keys `name`, `first_release_date`,
 `mana_value`, `edhrec_rank` (lower is more played; unranked cards come last) and `collector_number`. Any other value is a
 400, `DMD045`. Without `sort`, a search with a name lists the best name matches first (the whole name,
 then a whole word of it, the start of the name, the start of a word, anywhere), then the most played.
@@ -113,8 +113,8 @@ or skips a card.
 **Collector numbers** aren't plain numbers (`12`, `12a`, `★12`, `A-12`, `12★`). `sort=collector_number`
 orders by the first run of digits in the number, then by the number as text, so within one number
 the plain one comes first, then letters, then other marks: `2`, `12`, `12a`, `A-12`, `★12`, `13`, `100`.
-A number with no digits, or a card with none, comes after every numbered card. Meant with a `set_code`
-filter, where an index serves it. Cards imported before this existed have no collector number until
+A number with no digits, or a card with none, comes after every numbered card. It needs a `set_code`
+filter, where an index serves it; without one it is a 400, `DMD045`. Cards imported before this existed have no collector number until
 the next `POST /sync`, and sort first meanwhile.
 
 **Rarity and set** filter the printing the import keeps for each card (Scryfall's `oracle_cards`, one

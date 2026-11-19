@@ -33,6 +33,7 @@ public final class SetSearchOrder {
 
     /** The sort for the request's {@code sort} parameter, release date newest first when there is none. */
     public static Sort sort(List<String> sortParams) {
+        sortParams = SortParameters.joined(sortParams);
         Sort sort = Sort.unsorted();
         if (sortParams == null || sortParams.isEmpty()) {
             sort = Sort.by(Sort.Direction.DESC, "release_date");

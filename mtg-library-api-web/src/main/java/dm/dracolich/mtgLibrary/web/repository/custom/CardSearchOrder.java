@@ -48,8 +48,26 @@ public final class CardSearchOrder {
         return String.join(", ", KEYS.keySet());
     }
 
+    /**
+     * Refuses {@code collector_number} without a {@code set_code} filter (400, DMD045): collector
+     * numbers mean nothing across sets, and only within a set does an index serve that order.
+     */
+    static void requireSetForCollectorNumber(List<String> sortParams, String setCode) {
+        if (setCode != null && !setCode.isBlank()) return;
+        List<String> joined = SortParameters.joined(sortParams);
+        if (joined == null) return;
+        for (String param : joined) {
+            String key = param == null ? "" : param.trim().split("\\s*,\\s*")[0].toLowerCase(Locale.ROOT);
+            if (key.equals("collector_number")) {
+                throw unknownSort(param, "name, first_release_date, mana_value or edhrec_rank;"
+                        + " collector_number only with a set_code filter");
+            }
+        }
+    }
+
     /** Turns the request's sort parameters into a {@code $sort} document. */
     static Document sort(List<String> sortParams, String name) {
+        sortParams = SortParameters.joined(sortParams);
         Document sort = new Document();
         if (sortParams != null && !sortParams.isEmpty()) {
             for (String param : sortParams) {
