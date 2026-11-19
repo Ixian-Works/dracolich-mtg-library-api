@@ -47,6 +47,12 @@ public class CardEntity {
     private Rarity rarity;
     @Field("set_code")
     private String setCode;
+    // Whether the card can be a Commander deck's commander, and the tokens of what it can be paired
+    // with (see seed/CommanderRules). Worked out at import; null on cards imported before they
+    // existed, until the next sync.
+    @Field("can_be_commander")
+    private Boolean canBeCommander;
+    private Set<String> pairings;
     // The card's name and each face's name, lower-cased, for an exact-name lookup that an index can
     // serve. Null on cards imported before it existed, until the next sync.
     @Field(NAME_KEYS)

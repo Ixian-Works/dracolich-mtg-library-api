@@ -43,4 +43,10 @@ public class CardDto {
     private List<RelatedCardPartDto> allParts;
     @JsonProperty("default_art")
     private ArtPropertyDto defaultArt;
+    // Whether the card can be a Commander deck's commander, and what it can be paired with:
+    // partner, partner_with:<name>, partner_group:<name>, friends_forever, choose_a_background,
+    // background, doctors_companion, doctor.
+    @JsonProperty("can_be_commander")
+    private Boolean canBeCommander;
+    private Set<String> pairings;
 }

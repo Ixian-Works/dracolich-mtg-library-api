@@ -292,7 +292,7 @@ public class ScryfallSeeder {
                     .toList();
         }
 
-        return CardEntity.builder()
+        CardEntity card = CardEntity.builder()
                 .oracleId(dto.oracleId())
                 .name(dto.name())
                 .rarity(parseEnum(Rarity.class, dto.rarity()))
@@ -310,6 +310,10 @@ public class ScryfallSeeder {
                 .allParts(allParts)
                 .nameKeys(nameKeys(dto.name(), defaultFace, flippedFace))
                 .build();
+        CommanderRules.Result commander = CommanderRules.of(card);
+        card.setCanBeCommander(commander.canBeCommander());
+        card.setPairings(commander.pairings());
+        return card;
     }
 
     static Set<String> nameKeys(String name, CardFaceEntity defaultFace, CardFaceEntity flippedFace) {
