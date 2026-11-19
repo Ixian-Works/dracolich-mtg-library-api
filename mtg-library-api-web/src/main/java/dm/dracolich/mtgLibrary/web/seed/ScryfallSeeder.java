@@ -1,5 +1,6 @@
 package dm.dracolich.mtgLibrary.web.seed;
 
+import dm.dracolich.mtgLibrary.web.repository.custom.CollectorNumbers;
 import dm.dracolich.mtgLibrary.dto.enums.*;
 import dm.dracolich.mtgLibrary.integration.client.ScryfallClient;
 import dm.dracolich.mtgLibrary.integration.dto.*;
@@ -297,6 +298,8 @@ public class ScryfallSeeder {
                 .name(dto.name())
                 .rarity(parseEnum(Rarity.class, dto.rarity()))
                 .setCode(dto.setCode() != null ? dto.setCode().toLowerCase(Locale.ROOT) : null)
+                .collectorNumber(dto.collectorNumber())
+                .collectorOrder(CollectorNumbers.order(dto.collectorNumber()))
                 .keywords(dto.keywords() != null ? new LinkedHashSet<>(dto.keywords()) : null)
                 .legalities(parseLegalities(dto.legalities()))
                 .layout(dto.layout())

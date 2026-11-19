@@ -27,13 +27,17 @@ public final class CardSearchOrder {
     static final String RELEVANCE = "_relevance";
     static final String EDHREC = "_edhrec";
 
-    private static final Map<String, String> KEYS = new LinkedHashMap<>();
+    /** Each key's stored fields, in the order they sort. */
+    private static final Map<String, List<String>> KEYS = new LinkedHashMap<>();
 
     static {
-        KEYS.put("name", "name");
-        KEYS.put("first_release_date", "first_release_date");
-        KEYS.put("mana_value", "default_face.gameplay_property.mana_value");
-        KEYS.put("edhrec_rank", EDHREC);
+        KEYS.put("name", List.of("name"));
+        KEYS.put("first_release_date", List.of("first_release_date"));
+        KEYS.put("mana_value", List.of("default_face.gameplay_property.mana_value"));
+        KEYS.put("edhrec_rank", List.of(EDHREC));
+        // A set's cards as players know them: by the number inside the collector number, then the
+        // number as text, so 12 < 12a < 13 (see CollectorNumbers).
+        KEYS.put("collector_number", List.of("collector_order", "collector_number"));
     }
 
     private CardSearchOrder() {
@@ -71,7 +75,9 @@ public final class CardSearchOrder {
                 default -> throw unknownSort(param, allowedKeys());
             };
         }
-        sort.append(KEYS.get(parts[0].toLowerCase(Locale.ROOT)), direction);
+        for (String field : KEYS.get(parts[0].toLowerCase(Locale.ROOT))) {
+            sort.append(field, direction);
+        }
     }
 
     /**

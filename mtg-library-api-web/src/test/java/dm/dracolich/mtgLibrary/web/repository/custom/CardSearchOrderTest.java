@@ -178,4 +178,12 @@ class CardSearchOrderTest {
             assertThat(match).isEqualTo(Document.parse("{\"$and\": [{\"set_code\": \"mh3\"}]}"));
         }
     }
+
+    @Test
+    void collectorNumberSortsByTheNumberInsideThenTheText() {
+        assertThat(CardSearchOrder.sort(List.of("collector_number"), null))
+                .isEqualTo(new Document("collector_order", 1).append("collector_number", 1).append("_id", 1));
+        assertThat(CardSearchOrder.sort(List.of("collector_number,desc"), null))
+                .isEqualTo(new Document("collector_order", -1).append("collector_number", -1).append("_id", 1));
+    }
 }

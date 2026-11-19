@@ -4,6 +4,7 @@ import dm.dracolich.mtgLibrary.dto.CollectionSetDto;
 import dm.dracolich.mtgLibrary.dto.records.SetSearchRecord;
 import dm.dracolich.mtgLibrary.web.service.CollectionSetService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -16,6 +17,8 @@ import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("sets")
 @Tag(name = "Sets")
@@ -23,17 +26,20 @@ import reactor.core.publisher.Mono;
 public class CollectionSetController {
     private final CollectionSetService service;
 
-    @Operation(summary = "Search all sets", description = "Returns sets by filters")
+    @Operation(summary = "Search all sets", description = "Returns sets by filters, newest release first unless sort says otherwise. A set with no release date comes last.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Sets fetched successfully",
-                    content = @Content(schema = @Schema(implementation = CollectionSetDto.class)))
+                    content = @Content(schema = @Schema(implementation = CollectionSetDto.class))),
+            @ApiResponse(responseCode = "400", description = "An unknown sort (DMD045), or a page or size out of range")
     })
     @PostMapping(path = {"/search"}, produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<Page<CollectionSetDto>> searchSets(@RequestParam(required = false) String name,
+                                                    @Parameter(description = "Sort key: release_date (newest first unless followed by ,asc; the default) or name (A to Z unless followed by ,desc)")
+                                                    @RequestParam(required = false) List<String> sort,
                                                     @RequestBody SetSearchRecord filters,
                                                     @RequestParam(defaultValue = PageBounds.DEFAULT_PAGE) int page,
                                                     @RequestParam(defaultValue = PageBounds.DEFAULT_SIZE) int size) {
-        return service.searchSets(name, filters, page, size);
+        return service.searchSets(name, filters, sort, page, size);
     }
 
     @Operation(summary = "Fetch set by id", description = "Returns set by id")

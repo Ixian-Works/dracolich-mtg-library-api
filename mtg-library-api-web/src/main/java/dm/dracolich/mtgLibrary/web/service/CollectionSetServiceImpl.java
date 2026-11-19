@@ -11,6 +11,8 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+
 import static dm.dracolich.mtgLibrary.web.helpers.ErrorUtil.notFound;
 
 @Service
@@ -20,9 +22,9 @@ public class CollectionSetServiceImpl implements CollectionSetService {
     private final CollectionSetMapper mapper;
 
     @Override
-    public Mono<Page<CollectionSetDto>> searchSets(String name, SetSearchRecord filters, int page, int size) {
+    public Mono<Page<CollectionSetDto>> searchSets(String name, SetSearchRecord filters, List<String> sort, int page, int size) {
         PageBounds.check(page, size);
-        return repo.findByFilters(name, filters, page, size)
+        return repo.findByFilters(name, filters, sort, page, size)
                 .map(entityPage -> new PageImpl<>(
                         entityPage.getContent().stream().map(mapper::entityToDto).toList(),
                         entityPage.getPageable(),

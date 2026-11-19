@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -19,11 +20,14 @@ public class CollectionSetCustomRepositoryImpl implements CollectionSetCustomRep
     private final ReactiveMongoTemplate mongoTemplate;
 
     @Override
-    public Mono<Page<CollectionSetEntity>> findByFilters(String name, SetSearchRecord search, int page, int size) {
+    public Mono<Page<CollectionSetEntity>> findByFilters(String name, SetSearchRecord search, List<String> sort,
+                                                         int page, int size) {
+        // Read before any query runs, so an unknown sort is a 400 and costs nothing.
+        Sort order = SetSearchOrder.sort(sort);
         Criteria combined = buildCriteria(name, search);
 
         Query query = Query.query(combined);
-        PageRequest pageRequest = PageRequest.of(page, size);
+        PageRequest pageRequest = PageRequest.of(page, size, order);
 
         return mongoTemplate.count(Query.query(combined), CollectionSetEntity.class)
                 .flatMap(total -> mongoTemplate.find(query.with(pageRequest), CollectionSetEntity.class)

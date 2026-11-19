@@ -65,6 +65,9 @@ class MongoIndexesTest {
     void theExtraIndexesAreNamed() {
         assertThat(MongoIndexes.extraIndexes().get(dm.dracolich.mtgLibrary.web.entity.CardEntity.class))
                 .extracting(index -> index.getIndexOptions().get("name"))
-                .containsExactly("idx_name_keys", "idx_first_release_date_id");
+                .containsExactly("idx_name_keys", "idx_first_release_date_id", "idx_set_collector_number");
+        assertThat(MongoIndexes.extraIndexes().get(dm.dracolich.mtgLibrary.web.entity.CollectionSetEntity.class))
+                .extracting(index -> index.getIndexOptions().get("name"))
+                .containsExactly("idx_release_date_id", "idx_set_name_id");
     }
 }
