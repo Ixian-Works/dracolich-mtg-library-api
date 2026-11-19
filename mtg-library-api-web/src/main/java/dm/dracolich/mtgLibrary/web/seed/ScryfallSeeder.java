@@ -3,14 +3,15 @@ package dm.dracolich.mtgLibrary.web.seed;
 import dm.dracolich.mtgLibrary.dto.enums.*;
 import dm.dracolich.mtgLibrary.integration.client.ScryfallClient;
 import dm.dracolich.mtgLibrary.integration.dto.*;
-import dm.dracolich.mtgLibrary.web.config.MongoIndexes;
 import dm.dracolich.mtgLibrary.web.entity.*;
 import dm.dracolich.mtgLibrary.web.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
+import com.mongodb.MongoNamespace;
+import com.mongodb.client.model.RenameCollectionOptions;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
+import org.springframework.data.mongodb.core.index.Index;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
@@ -20,6 +21,8 @@ import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 @Component
@@ -27,7 +30,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class ScryfallSeeder {
 
-    private volatile boolean syncing = false;
+    private final AtomicBoolean syncing = new AtomicBoolean(false);
 
     private final ScryfallClient scryfallClient;
     private final ReactiveMongoTemplate mongoTemplate;
@@ -39,67 +42,65 @@ public class ScryfallSeeder {
     private final CardLayoutRepository layoutRepository;
     private final FrameEffectRepository frameEffectRepository;
     private final SubtypeRepository subtypeRepository;
-    private final MongoIndexes mongoIndexes;
 
-    @EventListener(ApplicationReadyEvent.class)
-    public void seed() {
-        // Indexes first: the seed's upserts look up every card and art record by its key.
-        // Only seed if the database is empty.
-        mongoIndexes.ensureAll()
-                .then(cardRepository.count())
-                .flatMap(count -> {
-                    if (count > 0) {
-                        log.info("Database already seeded ({} cards). Skipping.", count);
-                        return Mono.empty();
-                    }
-                    log.info("Database empty. Starting Scryfall seed...");
-                    return sync();
-                })
-                .subscribe(
-                        unused -> {},
-                        error -> log.error("Seed failed", error),
-                        () -> log.info("Seed check complete.")
-                );
+    /**
+     * One full import from Scryfall: sets, symbols, cards, then rulings. Only one runs at a time in
+     * this process; a second caller gets an {@code IllegalStateException}. Across replicas,
+     * {@link SyncService} holds a lock in MongoDB around it.
+     */
+    public Mono<SyncCounts> sync() {
+        if (!syncing.compareAndSet(false, true)) {
+            return Mono.error(new AlreadyRunningException());
+        }
+        log.info("Starting Scryfall sync...");
+        AtomicLong sets = new AtomicLong();
+        AtomicLong symbols = new AtomicLong();
+        AtomicLong cards = new AtomicLong();
+        AtomicLong rulings = new AtomicLong();
+        AtomicLong gone = new AtomicLong();
+        return seedSets().doOnNext(sets::set)
+                .then(seedSymbols().doOnNext(symbols::set))
+                .then(seedCards(cards, gone))
+                .then(seedRulings().doOnNext(rulings::set))
+                .then(Mono.fromSupplier(() -> new SyncCounts(sets.get(), symbols.get(), cards.get(), rulings.get(), gone.get())))
+                .doOnSuccess(v -> log.info("Sync complete."))
+                .doFinally(signal -> syncing.set(false));
     }
 
-    public Mono<Void> sync() {
-        if (syncing) {
-            return Mono.error(new IllegalStateException("Sync already in progress."));
+    /** A sync was asked for while another runs in this process. */
+    public static class AlreadyRunningException extends IllegalStateException {
+        public AlreadyRunningException() {
+            super("Sync already in progress.");
         }
-        syncing = true;
-        log.info("Starting Scryfall sync...");
-        return seedSets()
-                .then(seedSymbols())
-                .then(seedCards())
-                .then(seedRulings())
-                .doOnSuccess(v -> log.info("Sync complete."))
-                .doFinally(signal -> syncing = false);
+    }
+
+    /** Whether a sync is running in this process. */
+    public boolean isSyncing() {
+        return syncing.get();
     }
 
     // -----------------------------------------------------------------------
     // Step 1: Sets — GET /sets
     // -----------------------------------------------------------------------
-    private Mono<Void> seedSets() {
+    private Mono<Long> seedSets() {
         return scryfallClient.getSets()
                 .flatMapMany(list -> Flux.fromIterable(list.data()))
                 .map(this::mapSet)
                 .concatMap(entity -> upsert("scryfall_id", entity.getScryfallId(), entity))
                 .count()
-                .doOnNext(count -> log.info("Sets synced: {}.", count))
-                .then();
+                .doOnNext(count -> log.info("Sets synced: {}.", count));
     }
 
     // -----------------------------------------------------------------------
     // Step 2: Symbols — GET /symbology
     // -----------------------------------------------------------------------
-    private Mono<Void> seedSymbols() {
+    private Mono<Long> seedSymbols() {
         return scryfallClient.getSymbology()
                 .flatMapMany(list -> Flux.fromIterable(list.data()))
                 .map(this::mapSymbol)
                 .concatMap(entity -> upsert("symbol", entity.getSymbol(), entity))
                 .count()
-                .doOnNext(count -> log.info("Symbols synced: {}.", count))
-                .then();
+                .doOnNext(count -> log.info("Symbols synced: {}.", count));
     }
 
     // -----------------------------------------------------------------------
@@ -114,7 +115,7 @@ public class ScryfallSeeder {
     //
     // The mapping methods below are where you do this split.
     // -----------------------------------------------------------------------
-    private Mono<Void> seedCards() {
+    private Mono<Void> seedCards(AtomicLong cards, AtomicLong gone) {
         return scryfallClient.getBulkDataList()
                 .map(list -> list.data().stream()
                         .filter(bd -> "oracle_cards".equals(bd.type()))
@@ -126,7 +127,28 @@ public class ScryfallSeeder {
                 })
                 .flatMap(scryfallCards -> {
                     log.info("Downloaded {} cards from Scryfall.", scryfallCards.size());
-                    return processCards(scryfallCards);
+                    cards.set(scryfallCards.size());
+                    return countCardsGone(scryfallCards).doOnNext(gone::set)
+                            .then(processCards(scryfallCards));
+                });
+    }
+
+    /**
+     * The cards stored here whose oracle id Scryfall's file no longer has. They are never deleted,
+     * since a deck may still name them; the count is logged so a removal doesn't go unnoticed.
+     */
+    private Mono<Long> countCardsGone(List<ScryfallCardDto> scryfallCards) {
+        Set<String> current = scryfallCards.stream()
+                .map(ScryfallCardDto::oracleId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Query stored = new Query();
+        stored.fields().include("oracle_id");
+        return mongoTemplate.find(stored, CardEntity.class)
+                .filter(card -> card.getOracleId() != null && !current.contains(card.getOracleId()))
+                .count()
+                .doOnNext(count -> {
+                    if (count > 0) log.warn("{} stored cards are no longer in Scryfall's file. They are kept, not deleted.", count);
                 });
     }
 
@@ -438,22 +460,39 @@ public class ScryfallSeeder {
     // -----------------------------------------------------------------------
     // Step 4: Rulings — bulk data download
     // -----------------------------------------------------------------------
-    private Mono<Void> seedRulings() {
-        // Drop and re-insert rulings — they have no stable external ID for upsert,
-        // and the full set is small enough to replace on each sync.
-        return rulingRepository.deleteAll()
-                .then(scryfallClient.getBulkDataList()
-                        .map(list -> list.data().stream()
-                                .filter(bd -> "rulings".equals(bd.type()))
-                                .findFirst()
-                                .orElseThrow(() -> new IllegalStateException("No rulings bulk data found")))
-                        .flatMapMany(bulkData -> scryfallClient.streamBulkRulings(bulkData.downloadUri()))
-                        .map(this::mapRuling)
-                        .collectList()
-                        .flatMapMany(rulingRepository::saveAll)
-                        .count()
-                        .doOnNext(count -> log.info("Rulings synced: {}.", count))
-                        .then());
+    /**
+     * Rulings have no stable id to upsert on, so the whole set is replaced. It is written to a side
+     * collection and then swapped in with one rename, so {@code rulings} is never empty during a sync,
+     * and a sync that fails part way leaves the old rulings in place.
+     */
+    private Mono<Long> seedRulings() {
+        return mongoTemplate.dropCollection(RULINGS_NEXT)
+                .then(scryfallClient.getBulkDataList())
+                .map(list -> list.data().stream()
+                        .filter(bd -> "rulings".equals(bd.type()))
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalStateException("No rulings bulk data found")))
+                .flatMapMany(bulkData -> scryfallClient.streamBulkRulings(bulkData.downloadUri()))
+                .map(this::mapRuling)
+                .buffer(1000)
+                .concatMap(batch -> mongoTemplate.insert(batch, RULINGS_NEXT).count())
+                .reduce(0L, Long::sum)
+                .flatMap(count -> mongoTemplate.indexOps(RULINGS_NEXT)
+                        .createIndex(new Index().on("oracle_id", Sort.Direction.ASC))
+                        .then(swapRulingsIn())
+                        .thenReturn(count))
+                .doOnNext(count -> log.info("Rulings synced: {}.", count));
+    }
+
+    static final String RULINGS = "rulings";
+    static final String RULINGS_NEXT = "rulings_next";
+
+    /** Renames the side collection over {@code rulings}, dropping the old one in the same step. */
+    private Mono<Void> swapRulingsIn() {
+        return mongoTemplate.getMongoDatabase()
+                .flatMap(db -> Mono.from(db.getCollection(RULINGS_NEXT).renameCollection(
+                        new MongoNamespace(db.getName(), RULINGS), new RenameCollectionOptions().dropTarget(true))))
+                .then();
     }
 
     // -----------------------------------------------------------------------
