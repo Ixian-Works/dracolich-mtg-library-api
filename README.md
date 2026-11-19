@@ -116,10 +116,11 @@ beside that commander as the deck's second one (404 when the id is no card). Eac
 `can_be_commander` and `pairings`. Both are worked out at import, so cards imported before them need
 a `POST /sync`.
 
-A card **can be a commander** when the front face is a legendary creature, or its rules text says it
-"can be your commander" (such as Grist, the Hunger Tide). A card banned or not legal in Commander
-can't be. **Not covered yet:** legendary Vehicles and Spacecraft, which the rules don't make
-commanders by type alone; and the Brawl and Oathbreaker variants.
+A card **can be a commander**, by Comprehensive Rules 903.3 and 903.3a (rules effective
+2026-06-19), when its front face is legendary and is a creature, a Vehicle, or a Spacecraft with a
+power and toughness; or its rules text says it "can be your commander" (such as Grist, the Hunger
+Tide). A card banned or not legal in Commander can't be. **Not covered:** the Brawl variant, where a
+planeswalker can be a commander too (903.12c), and Oathbreaker.
 
 **What may go beside a commander**, by its `pairings`:
 

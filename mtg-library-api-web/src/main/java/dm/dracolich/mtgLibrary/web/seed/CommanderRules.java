@@ -16,10 +16,11 @@ import java.util.regex.Pattern;
  * Whether a card can be a Commander deck's commander, and what it can be paired with, worked out from
  * the card at import (Ixian-Works/dracolich-mtg-library-api#22).
  *
- * <p><b>Can be a commander:</b> the front face is a legendary creature, or its rules text says it
- * "can be your commander"; and the card isn't banned or not legal in Commander. Not covered yet:
- * legendary Vehicles and Spacecraft, which the current rules don't make commanders by type alone,
- * and the Oathbreaker and Brawl variants.</p>
+ * <p><b>Can be a commander</b>, by Comprehensive Rules 903.3 and 903.3a (rules effective
+ * 2026-06-19): the front face is legendary and is a creature, a Vehicle, or a Spacecraft with a power
+ * and toughness; or its rules text says it "can be your commander". And the card isn't banned or not
+ * legal in Commander. Not covered: the Brawl variant, where a planeswalker can be a commander too
+ * (903.12c), and Oathbreaker.</p>
  *
  * <p><b>Pairings</b>, each a token in {@code pairings}:</p>
  * <ul>
@@ -64,10 +65,14 @@ public final class CommanderRules {
         String typeRight = type.contains("—") ? type.split("—", 2)[1] : "";
         Set<String> keywords = lower(card.getKeywords());
 
-        boolean legendaryCreature = hasWord(typeLeft, "Legendary") && hasWord(typeLeft, "Creature");
+        boolean legendary = hasWord(typeLeft, "Legendary");
+        // 903.3: a legendary creature card, Vehicle card, or Spacecraft card with a power/toughness box.
+        boolean byType = legendary && (hasWord(typeLeft, "Creature")
+                || hasWord(typeRight, "Vehicle")
+                || (hasWord(typeRight, "Spacecraft") && hasPowerAndToughness(front)));
         boolean saysSo = text.toLowerCase(Locale.ROOT).contains("can be your commander");
         boolean legal = isLegal(card.getLegalities());
-        boolean canBeCommander = legal && (legendaryCreature || saysSo);
+        boolean canBeCommander = legal && (byType || saysSo);
         boolean background = legal && hasWord(typeLeft, "Legendary") && hasWord(typeLeft, "Enchantment")
                 && hasWord(typeRight, "Background");
 
@@ -91,6 +96,12 @@ public final class CommanderRules {
         }
         if (background) pairings.add(BACKGROUND);
         return new Result(canBeCommander, pairings);
+    }
+
+    /** A power/toughness box: the face has both, as a Spacecraft that becomes a creature does. */
+    private static boolean hasPowerAndToughness(CardFaceEntity face) {
+        if (face == null || face.getGameplayProperty() == null) return false;
+        return face.getGameplayProperty().getPower() != null && face.getGameplayProperty().getToughness() != null;
     }
 
     /** Legal in Commander, or no word on it; banned or not legal is not. */

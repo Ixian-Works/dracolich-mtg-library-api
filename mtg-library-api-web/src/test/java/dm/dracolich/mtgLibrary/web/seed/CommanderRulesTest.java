@@ -4,6 +4,7 @@ import dm.dracolich.mtgLibrary.dto.enums.Format;
 import dm.dracolich.mtgLibrary.dto.enums.Legality;
 import dm.dracolich.mtgLibrary.web.entity.CardEntity;
 import dm.dracolich.mtgLibrary.web.entity.CardFaceEntity;
+import dm.dracolich.mtgLibrary.web.entity.GameplayPropertyEntity;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -44,8 +45,25 @@ class CommanderRulesTest {
     @Test
     void cardsThatAreNotCommanders() {
         assertThat(rules("Creature — Goblin", "Haste").canBeCommander()).isFalse();
-        assertThat(rules("Legendary Artifact — Vehicle", "Crew 2").canBeCommander()).isFalse();
         assertThat(rules("Legendary Enchantment", "Whenever you cast a spell, scry 1.").canBeCommander()).isFalse();
+    }
+
+    @Test
+    void aLegendaryVehicleCanBeACommander_byRule903_3() {
+        assertThat(rules("Legendary Artifact — Vehicle", "Crew 2").canBeCommander()).isTrue();
+        assertThat(rules("Artifact — Vehicle", "Crew 1").canBeCommander()).isFalse();
+    }
+
+    @Test
+    void aLegendarySpacecraftCanBeACommanderOnlyWithAPowerAndToughness() {
+        assertThat(CommanderRules.of(spacecraft("4", "6")).canBeCommander()).isTrue();
+        assertThat(CommanderRules.of(spacecraft(null, null)).canBeCommander()).isFalse();
+    }
+
+    private static CardEntity spacecraft(String power, String toughness) {
+        CardEntity card = card("Ship", "Legendary Artifact — Spacecraft", "Station (Tap another creature you control: Put charge counters ...)", Legality.LEGAL);
+        card.getDefaultFace().setGameplayProperty(GameplayPropertyEntity.builder().power(power).toughness(toughness).build());
+        return card;
     }
 
     @Test
