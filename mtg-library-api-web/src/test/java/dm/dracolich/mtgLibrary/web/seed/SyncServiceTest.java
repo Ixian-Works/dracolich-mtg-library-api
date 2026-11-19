@@ -275,6 +275,35 @@ class SyncServiceTest {
                 .containsKey("lastSuccessEndedAt");
     }
 
+    @Test
+    void aReplicaThatDidntRunTheLastSyncStillSkipsWhenNothingChanged() {
+        SyncService other = new SyncService(seeder, scryfall, new SyncLock(template), template,
+                context.getBean(CardRepository.class), context.getBean(MongoIndexes.class));
+        // Both replicas start with no success in memory.
+        service.loadLastSuccess().block(WAIT);
+        other.loadLastSuccess().block(WAIT);
+
+        assertThat(service.run(Trigger.SCHEDULE, false).block(WAIT).getOutcome()).isEqualTo(Outcome.SUCCEEDED);
+        // The other replica takes the lease next, on the same files.
+        assertThat(other.run(Trigger.SCHEDULE, false).block(WAIT).getOutcome()).isEqualTo(Outcome.SKIPPED_UNCHANGED);
+        verify(scryfall, times(1)).getSets();
+        // And its info shows the success it didn't run itself.
+        assertThat(other.lastSuccess().getCardsFile()).isEqualTo("2026-11-19T09:00:00+00:00");
+    }
+
+    @Test
+    void aRunLeftRunningIsMarkedFailedByTheNextRun() {
+        template.insert(SyncRunEntity.builder().trigger(Trigger.SCHEDULE).outcome(Outcome.RUNNING)
+                .startedAt(Instant.now().minus(Duration.ofHours(3))).build()).block(WAIT);
+
+        service.run(Trigger.MANUAL, true).block(WAIT);
+
+        assertThat(template.findAll(SyncRunEntity.class).collectList().block(WAIT))
+                .extracting(SyncRunEntity::getOutcome).containsExactlyInAnyOrder(Outcome.FAILED, Outcome.SUCCEEDED);
+        assertThat(template.findAll(SyncRunEntity.class).filter(r -> r.getOutcome() == Outcome.FAILED).single().block(WAIT).getError())
+                .isEqualTo("Cut off before it finished.");
+    }
+
     @SuppressWarnings("unchecked")
     private static Map<String, Object> details(Info.Builder builder) {
         return (Map<String, Object>) builder.build().get("scryfallSync");

@@ -15,6 +15,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
@@ -35,8 +36,10 @@ import java.util.concurrent.atomic.AtomicReference;
  * </ul>
  *
  * <p>Every run holds {@link SyncLock}, so with several replicas only one syncs. Each run, and each
- * skip, is recorded in {@code sync_runs}; the last successful one shows in the {@code info} actuator
- * endpoint.</p>
+ * skip, is recorded in {@code sync_runs}. Whether anything changed is judged against the last success
+ * in {@code sync_runs}, read once the lease is held, so it counts every replica's runs. The last
+ * success shows in the {@code info} actuator endpoint, refreshed from the database every five
+ * minutes. A run cut off part way is marked failed by the next run.</p>
  */
 @Slf4j
 @Component
@@ -76,6 +79,12 @@ public class SyncService {
                 .subscribe(unused -> {}, error -> log.error("Startup sync failed", error));
     }
 
+    /** Keeps the {@code info} endpoint's copy current with runs made by other replicas. */
+    @Scheduled(fixedDelayString = "PT5M", initialDelayString = "PT5M")
+    public void refreshLastSuccess() {
+        loadLastSuccess().subscribe(unused -> {}, error -> log.warn("Could not read the last sync: {}", error.getMessage()));
+    }
+
     @Scheduled(cron = "${dracolich.sync.cron:0 30 4 * * *}", zone = "UTC")
     public void onSchedule() {
         run(Trigger.SCHEDULE, false)
@@ -101,7 +110,13 @@ public class SyncService {
     }
 
     private Mono<SyncRunEntity> runHolding(Trigger trigger, boolean force) {
-        return files().flatMap(files -> {
+        // With the lease held, nothing else is running: a RUNNING record left behind was cut off.
+        // And the last success is read from the database, since another replica may have run since
+        // this one last looked.
+        return markCutOffRuns()
+                .then(loadLastSuccess())
+                .then(files())
+                .flatMap(files -> {
             if (!force && unchanged(files)) {
                 log.info("Scryfall's files haven't changed since the last sync (cards {}, rulings {}); this {} run does nothing.",
                         files.cards(), files.rulings(), trigger);
@@ -174,6 +189,22 @@ public class SyncService {
 
     private Mono<SyncRunEntity> record(SyncRunEntity run) {
         return mongoTemplate.insert(run);
+    }
+
+    /** Records left RUNNING by a run that was cut off (its process died or its caller went away). */
+    Mono<Void> markCutOffRuns() {
+        return mongoTemplate.updateMulti(Query.query(Criteria.where("outcome").is(Outcome.RUNNING)),
+                        new Update()
+                                .set("outcome", Outcome.FAILED)
+                                .set("ended_at", Instant.now())
+                                .set("error", "Cut off before it finished."),
+                        SyncRunEntity.class)
+                .doOnNext(result -> {
+                    if (result.getModifiedCount() > 0) {
+                        log.warn("Marked {} sync runs that were cut off as failed.", result.getModifiedCount());
+                    }
+                })
+                .then();
     }
 
     Mono<Void> loadLastSuccess() {

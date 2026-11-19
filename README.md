@@ -174,7 +174,11 @@ second sync is refused at once.
 **Records.** Each run, and each skip, is a document in `sync_runs`: why it ran, when it started and
 ended, Scryfall's `updated_at` for both files, how many sets, symbols, cards and rulings it wrote, how
 many stored cards Scryfall no longer has (kept, never deleted, and logged), and the error if it
-failed. The last successful run is under `scryfallSync` in the `info` actuator endpoint.
+failed. Whether anything changed is judged against the last success in `sync_runs`, read once the
+lease is held, so it counts every replica's runs. A run cut off part way (its process died, or the
+caller of `POST /sync` went away) stays `RUNNING` until the next run marks it failed. The last
+successful run is under `scryfallSync` in the `info` actuator endpoint, refreshed from the database
+every five minutes.
 
 **Rulings during a sync.** They are written to `rulings_next` and swapped in with one rename, so
 `rulings` is never empty while a sync runs, and a sync that fails part way leaves the old ones.
